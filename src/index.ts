@@ -47,7 +47,7 @@ const load = async () => {
 			tui.print();
 		});
 		agent.on('load', () => {
-			tui.startSpinner('Loading...');
+			tui.startSpinner('Warming up...');
 		});
 		agent.on('loadComplete', () => {
 			tui.stopSpinner();
@@ -61,17 +61,25 @@ const load = async () => {
 	}
 };
 
-const loop = async () => {
+const loop = async (initialPrompt?: string) => {
 	while (true) {
-		tui.print(chalk.dim('● Human'));
-		const prompt = await tui.prompt({ prefix: chalk.dim('└ ') });
-		if (prompt !== null) {
-			tui.print();
-		} else {
-			tui.print('Exiting...');
-			tui.print();
-			process.exit(0);
-		}
+		const prompt = await (async () => {
+			if (initialPrompt) {
+				const prompt = initialPrompt;
+				initialPrompt = undefined;
+				return prompt;
+			}
+			tui.print(chalk.dim('● Human'));
+			const prompt = await tui.prompt({ prefix: chalk.dim('└ ') });
+			if (prompt !== null) {
+				tui.print();
+				return prompt;
+			} else {
+				tui.print('Exiting...');
+				tui.print();
+				process.exit(0);
+			}
+		})();
 		const stream = new PassThrough({ encoding: 'utf-8' });
 		const abortController = new AbortController();
 		const interruptHandler = () => {
@@ -107,5 +115,8 @@ const loop = async () => {
 };
 
 if (resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
-	load().then(loop);
+	load().then(() => {
+		const initialPrompt = 'Hello!';
+		loop(initialPrompt);
+	});
 }
