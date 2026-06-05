@@ -1,39 +1,47 @@
-import readline from 'node:readline/promises';
-import { stdin as input, stdout as output } from 'node:process';
 import { join } from 'node:path';
+import * as clack from '@clack/prompts';
 
-import { createSession } from './model';
+import { createSession, MODEL_REPO_NAME } from './model';
 import * as functions from './functions';
 
 try {
-	console.log('Loading model...');
+	clack.intro('Symon Agent v1.0');
+	clack.log.message(`Model: ${MODEL_REPO_NAME}`, {
+		spacing: 0,
+	});
+
+	const loadingSpinner = clack.spinner();
+	loadingSpinner.start('Warming up the agent...');
 	const session = await createSession();
+	loadingSpinner.stop('Agent is ready.');
 
-	console.log('Chat session started. Type "exit" or "quit" to end the session.');
-	const rl = readline.createInterface({ input, output });
+	while (true) {
+		const promptText = await clack.text({
+			message: 'User',
+			placeholder: 'Type a message or press CTRL+C to quit...',
+		});
+		clack.log.message();
 
-	try {
-		while (true) {
-			const promptText = await rl.question('\nUser: ');
-			const cleanPrompt = promptText.trim();
-			if (!cleanPrompt) continue;
-
-			if (cleanPrompt.toLowerCase() === 'exit' || cleanPrompt.toLowerCase() === 'quit') {
-				console.log('Goodbye!');
-				break;
-			}
-
-			process.stdout.write('Model: ');
-			await session.prompt(cleanPrompt, {
-				functions,
-				onTextChunk: (chunk) => {
-					process.stdout.write(chunk);
-				},
-			});
-			console.log();
+		if (clack.isCancel(promptText)) {
+			break;
 		}
-	} finally {
-		rl.close();
+
+		const cleanPrompt = promptText.trim();
+		if (!cleanPrompt) {
+			continue;
+		}
+
+		const responseSpinner = clack.spinner({
+			withGuide: false,
+		});
+		responseSpinner.start('Thinking...');
+		const response = await session.prompt(cleanPrompt, {
+			functions,
+		})
+		responseSpinner.stop('Model');
+		clack.log.message(response.trim(), {
+			spacing: 0,
+		});
 	}
 } catch (error) {
 	console.error('An error occurred:', error);

@@ -2,14 +2,14 @@ import { createWriteStream, mkdirSync, statSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import { join } from 'node:path';
 
-import progress from 'cli-progress';
 import { downloadFile } from '@huggingface/hub';
+import progress from 'cli-progress';
 
 const DOWNLOAD_PROGRESS_BAR_OPTIONS: progress.Options = {
 	format: 'Downloading model | {bar} | {percentage}% | {value}/{total}',
 	formatValue: (value, options, type) => {
 		if (type === 'value' || type === 'total') {
-			return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB;`
+			return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB;`;
 		} else {
 			return value.toString();
 		}
@@ -33,9 +33,6 @@ export async function downloadModel({
 	path,
 	outputDir,
 }: DownloadOptions): Promise<string> {
-	const bar = new progress.SingleBar(DOWNLOAD_PROGRESS_BAR_OPTIONS, progress.Presets.rect);
-	bar.start(0, 0);
-
 	const blob = await downloadFile({ repo, path });
 	if (!blob) {
 		throw new Error(`Failed to resolve remote file "${path}" in repo "${repo}".`);
@@ -57,8 +54,11 @@ export async function downloadModel({
 	}
 
 	mkdirSync(outputDir, { recursive: true });
-	bar.setTotal(totalSize);
-	bar.update(existingSize);
+	const bar = new progress.SingleBar(
+		DOWNLOAD_PROGRESS_BAR_OPTIONS,
+		progress.Presets.rect,
+	);
+	bar.start(totalSize, existingSize);
 
 	const blobRemains = existingSize > 0 ? blob.slice(existingSize) : blob;
 	const nodeStream = Readable.fromWeb(blobRemains.stream() as any);
