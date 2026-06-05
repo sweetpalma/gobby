@@ -2,19 +2,8 @@ import { createWriteStream, mkdirSync, statSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import { join } from 'node:path';
 
+import * as clack from '@clack/prompts';
 import { downloadFile } from '@huggingface/hub';
-import progress from 'cli-progress';
-
-const DOWNLOAD_PROGRESS_BAR_OPTIONS: progress.Options = {
-	format: 'Downloading model | {bar} | {percentage}% | {value}/{total}',
-	formatValue: (value, options, type) => {
-		if (type === 'value' || type === 'total') {
-			return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB;`;
-		} else {
-			return value.toString();
-		}
-	},
-};
 
 /**
  * Hugging Face Model Downloader Options.
@@ -53,12 +42,9 @@ export async function downloadModel({
 		}
 	}
 
-	mkdirSync(outputDir, { recursive: true });
-	const bar = new progress.SingleBar(
-		DOWNLOAD_PROGRESS_BAR_OPTIONS,
-		progress.Presets.rect,
-	);
-	bar.start(totalSize, existingSize);
+	const bar = clack.progress({ max: totalSize, withGuide: false });
+	bar.start();
+	bar.advance(existingSize);
 
 	const blobRemains = existingSize > 0 ? blob.slice(existingSize) : blob;
 	const nodeStream = Readable.fromWeb(blobRemains.stream() as any);
@@ -69,22 +55,23 @@ export async function downloadModel({
 	let downloadedBytes = existingSize;
 	await new Promise<void>((resolve, reject) => {
 		nodeStream.on('data', (chunk: Buffer) => {
-			downloadedBytes += chunk.length;
-			bar.update(downloadedBytes);
+			downloadedBytes = downloadedBytes + chunk.length;
+			const percentage = Math.floor(downloadedBytes / totalSize * 100);
+			bar.advance(chunk.length, `${percentage}%`);
 		});
 
 		nodeStream.on('error', (err) => {
-			bar.stop();
+			bar.error(err.message);
 			reject(err);
 		});
 
 		writeStream.on('error', (err) => {
-			bar.stop();
+			bar.error(err.message);
 			reject(err);
 		});
 
 		writeStream.on('finish', () => {
-			bar.stop();
+			bar.stop('Brain is installed.');
 			resolve();
 		});
 

@@ -2,21 +2,25 @@ import { join } from 'node:path';
 import * as clack from '@clack/prompts';
 
 import { SYSTEM_PROMPT } from './prompts/system';
-import { createSession, MODEL_REPO_NAME } from './model';
+import { downloadModel, loadModel, MODEL_REPO_NAME } from './model';
 import * as functions from './functions';
 
-try {
-	clack.intro('Symon Agent v1.0');
-	clack.log.message(`Model: ${MODEL_REPO_NAME}`, {
-		spacing: 0,
-	});
+const spinner = clack.spinner({
+	withGuide: false,
+});
 
-	const loadingSpinner = clack.spinner();
-	loadingSpinner.start('Warming up the agent...');
-	const session = await createSession(SYSTEM_PROMPT);
-	loadingSpinner.stop('Agent is ready.');
+clack.intro('Symon Agent v1.0');
+clack.log.message(`Brain: ${MODEL_REPO_NAME}`, {
+	spacing: 0,
+});
 
-	while (true) {
+const modelPath = await downloadModel();
+spinner.start('Warming up...');
+const session = await loadModel(modelPath, SYSTEM_PROMPT);
+spinner.stop('Agent is ready.');
+
+while (true) {
+	try {
 		const promptText = await clack.text({
 			message: 'User',
 			placeholder: 'Type a message or press CTRL+C to quit...',
@@ -32,18 +36,20 @@ try {
 			continue;
 		}
 
-		const responseSpinner = clack.spinner({
-			withGuide: false,
-		});
-		responseSpinner.start('Thinking...');
+		spinner.start('Thinking...');
 		const response = await session.prompt(cleanPrompt, {
 			functions,
 		});
-		responseSpinner.stop('Model');
+
+		spinner.stop('Agent');
 		clack.log.message(response.trim(), {
 			spacing: 0,
 		});
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : `${err}`;
+		spinner.error(`An error occurred:`);
+		clack.log.message(msg, {
+			spacing: 0,
+		});
 	}
-} catch (error) {
-	console.error('An error occurred:', error);
 }

@@ -17,14 +17,9 @@ export const downloadModel = async () => {
 	});
 };
 
-export const loadModel = async () => {
+export const loadModel = async (modelPath: string, systemPrompt?: string) => {
 	const llama = await getLlama();
-	const modelPath = await downloadModel();
-	return llama.loadModel({ modelPath });
-};
-
-export const createSession = async (systemPrompt?: string) => {
-	const model = await loadModel();
+	const model = await llama.loadModel({ modelPath });
 	const context = await model.createContext({
 		contextSize: MODEL_CONTEXT_LENGTH,
 	});
