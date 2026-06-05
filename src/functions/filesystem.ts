@@ -1,5 +1,5 @@
 import { join, resolve, relative, dirname, isAbsolute } from 'node:path';
-import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, stat, rm } from 'node:fs/promises';
 import { Agent } from '../agent';
 
 const isInsideCwd = (resolvedPath: string): boolean => {
@@ -149,6 +149,46 @@ export const filesystemWrite = Agent.function({
 		} catch (err) {
 			return {
 				error: `Failed to write file: ${path}`,
+			};
+		}
+	},
+});
+
+export const filesystemDelete = Agent.function({
+	description:
+		'Delete a file or directory at the specified path. Directories are deleted recursively. Only paths inside the current working directory are allowed.',
+	params: {
+		type: 'object',
+		required: ['path'],
+		properties: {
+			path: {
+				type: 'string',
+				description:
+					'The path of the file or directory to delete. Must be inside the current working directory.',
+			},
+		},
+	},
+	handler: async ({ path }: { path: string }) => {
+		try {
+			const resolvedPath = resolve(path);
+			if (!isInsideCwd(resolvedPath)) {
+				return {
+					error: `Access denied: "${path}" is outside the current working directory. You can only delete paths within: ${process.cwd()}`,
+				};
+			}
+			if (resolvedPath === process.cwd()) {
+				return {
+					error: 'Cannot delete the current working directory itself.',
+				};
+			}
+			await rm(resolvedPath, { recursive: true });
+			return {
+				path: resolvedPath,
+				deleted: true,
+			};
+		} catch (err) {
+			return {
+				error: `Failed to delete: ${path}`,
 			};
 		}
 	},
