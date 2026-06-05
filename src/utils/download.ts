@@ -12,7 +12,7 @@ export interface DownloadOptions {
 }
 
 /**
- * Downloads a model from Hugging Face Hub.
+ * Downloads a model from Hugging Face.
  */
 export async function downloadModel({ repo, path, outputDir }: DownloadOptions): Promise<string> {
   const blob = await downloadFile({ repo, path });
@@ -31,29 +31,21 @@ export async function downloadModel({ repo, path, outputDir }: DownloadOptions):
     if (existingSize === totalSize) {
       return destPath;
     } else if (existingSize > totalSize) {
-      const existingGB = (existingSize / (1024 * 1024 * 1024)).toFixed(2);
-      const totalGB = (totalSize / (1024 * 1024 * 1024)).toFixed(2);
       existingSize = 0;
-    } else {
-      const existingGB = (existingSize / (1024 * 1024 * 1024)).toFixed(2);
-      const totalGB = (totalSize / (1024 * 1024 * 1024)).toFixed(2);
     }
   }
 
   mkdirSync(outputDir, { recursive: true });
 
   const bar = new cliProgress.SingleBar({
-    etaBuffer: 2500,
-    fps: 2,
-    format: 'Downloading model | {bar} | {percentage}% | ETA: {eta}s | {value}/{total}',
+    format: 'Downloading model | {bar} | {percentage}% | {value}/{total}',
     formatValue: (value, options, type) => {
       if (type === 'value' || type === 'total') {
         return (value / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
       }
-      return String(value);
+      return value.toString();
     },
-  }, cliProgress.Presets.shades_classic);
-
+  }, cliProgress.Presets.rect);
   bar.start(totalSize, existingSize);
 
   const remainingBlob = existingSize > 0 ? blob.slice(existingSize) : blob;
