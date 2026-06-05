@@ -14,6 +14,7 @@ export const MemorySchema = zod.array(zod.string());
  */
 export interface MemoryOptions {
 	path: string;
+	lengthLimit?: number;
 }
 
 /**
@@ -24,25 +25,47 @@ export class Memory {
 	private readonly path: string;
 	private facts: Array<string> = [];
 
-	constructor(opts: MemoryOptions) {
-		this.path = opts.path;
+	constructor({ path, lengthLimit }: MemoryOptions) {
+		this.path = path;
+		this.lengthLimit = lengthLimit ?? 4096;
+	}
+
+	/**
+	 * Memory length limit.
+	 */
+	public lengthLimit: number;
+
+	/**
+	 * Memory size in characters.
+	 */
+	public get length() {
+		return this.format().length;
 	}
 
 	/**
 	 * Adds a new fact, skipping exact duplicates.
+	 * @returns Whether the fact was added.
 	 */
-	public add(fact: string) {
+	public add(fact: string): boolean {
 		const trimmed = fact.trim();
-		if (this.facts.includes(trimmed)) {
-			return;
+		if (trimmed.length === 0) {
+			return false;
 		}
-		if (trimmed.length !== 0) {
-			this.facts.push(trimmed);
+		if (this.facts.includes(trimmed)) {
+			return false;
+		}
+		this.facts.push(trimmed);
+		if (this.length <= this.lengthLimit) {
+			return true;
+		} else {
+			this.facts.pop();
+			return false;
 		}
 	}
 
 	/**
 	 * Removes the first fact matching a query (case-insensitive substring).
+	 * @returns Whether the fact was removed.
 	 */
 	public remove(query: string) {
 		const lower = query.toLowerCase();
@@ -51,6 +74,9 @@ export class Memory {
 		});
 		if (index >= 0) {
 			this.facts.splice(index, 1);
+			return true;
+		} else {
+			return false;
 		}
 	}
 

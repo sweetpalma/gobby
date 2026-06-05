@@ -63,6 +63,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 		this.config = config;
 		this.memory = new Memory({
 			path: this.config.memoryPath,
+			lengthLimit: this.config.get('memorySize'),
 		});
 	}
 
@@ -96,7 +97,9 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 */
 	public async load() {
 		await this.config.load();
+		await this.config.save();
 		await this.memory.load();
+		this.memory.lengthLimit = this.config.get('memorySize');
 		const path = await downloadModel({
 			repo: this.config.get('modelRepo'),
 			path: this.config.get('modelPath'),

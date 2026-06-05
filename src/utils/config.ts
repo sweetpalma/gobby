@@ -11,6 +11,7 @@ export const ConfigSchema = zod.object({
 	modelRepo: zod.string(),
 	modelPath: zod.string(),
 	contextSize: zod.number(),
+	memorySize: zod.number(),
 });
 
 /**
@@ -27,6 +28,7 @@ export const CONFIG_DEFAULTS: ConfigSchema = {
 	modelRepo: 'unsloth/Qwen3.5-4B-GGUF',
 	modelPath: 'Qwen3.5-4B-Q4_K_M.gguf',
 	contextSize: 32000,
+	memorySize: 4096,
 };
 
 /**

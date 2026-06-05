@@ -12,6 +12,7 @@ export const configRead = Agent.function({
 				modelRepo: agent.config.get('modelRepo'),
 				modelPath: agent.config.get('modelPath'),
 				contextSize: agent.config.get('contextSize'),
+				memorySize: agent.config.get('memorySize'),
 			};
 		} catch (err) {
 			return {
@@ -30,12 +31,19 @@ export const configWrite = Agent.function({
 				type: 'number',
 				description: 'The maximum context size for the model in tokens (e.g. 32000).',
 			},
+			memorySize: {
+				type: 'number',
+				description: 'The maximum number of facts to remember (e.g. 100).',
+			},
 		},
 	},
 	handler: async (params, agent: Agent) => {
 		try {
 			if (params.contextSize !== undefined) {
 				agent.config.set('contextSize', params.contextSize);
+			}
+			if (params.memorySize !== undefined) {
+				agent.config.set('memorySize', params.memorySize);
 			}
 			await agent.config.save();
 			return {

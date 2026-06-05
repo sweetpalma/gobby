@@ -16,10 +16,15 @@ export const memoryRemember = Agent.function({
 	},
 	handler: async ({ fact }, agent: Agent) => {
 		try {
-			agent.memory.add(fact);
+			const added = agent.memory.add(fact);
+			if (!added) {
+				return {
+					error: 'Memory is full. Forget something first.',
+				};
+			}
 			await agent.memory.save();
 			return {
-				result: 'Memorized.',
+				result: `Memorized (${agent.memory.length}/${agent.memory.lengthLimit} characters used).`,
 			};
 		} catch (err) {
 			return {
@@ -55,5 +60,21 @@ export const memoryForget = Agent.function({
 				error: `Failed to forget: ${err instanceof Error ? err.message : err}`,
 			};
 		}
+	},
+});
+
+export const memoryStatus = Agent.function({
+	description:
+		'Check current memory status - lists all memorized facts and shows how many characters are used out of the total limit.',
+	params: {
+		type: 'object',
+		properties: {},
+	},
+	handler: async (_, agent: Agent) => {
+		const facts = agent.memory.list();
+		return {
+			facts,
+			usage: `${agent.memory.length}/${agent.memory.lengthLimit} characters used`,
+		};
 	},
 });
