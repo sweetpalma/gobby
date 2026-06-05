@@ -2,30 +2,26 @@
 import { fileURLToPath } from 'node:url';
 import { realpathSync as resolve } from 'node:fs';
 import { PassThrough } from 'node:stream';
-import * as clack from '@clack/prompts';
+import chalk from 'chalk';
 
 import * as functions from './functions';
-import { Model } from './model';
+import { Model, ModelAbort } from './model';
 import { SYSTEM_PROMPT } from './prompts/system';
 import { downloadModel } from './utils/download';
+import { tui } from './utils/terminal';
 import { config } from './config';
 
 const load = async () => {
 	await config.load();
-	clack.intro('Gobby Agent v1.0');
-	clack.log.message(`Brain: ${config.get('modelRepo')}`, {
-		spacing: 0,
-	});
-	const spinner = clack.spinner({
-		withGuide: false,
-	});
+	tui.print('Gobby Agent v1.0');
+	tui.print(chalk.dim(`Brain: ${config.get('modelRepo')}`));
 	try {
 		const path = await downloadModel({
 			repo: config.get('modelRepo'),
 			path: config.get('modelPath'),
 			outputDir: config.modelsPath,
 		});
-		spinner.start('Warming up...');
+		tui.startSpinner('Warming up...');
 		const model = new Model({
 			path,
 			systemPrompt: SYSTEM_PROMPT,
@@ -33,85 +29,61 @@ const load = async () => {
 			functions,
 		});
 		await model.load();
-		spinner.stop('Agent is ready.');
+		tui.stopSpinner();
+		tui.print(chalk.dim('Agent is ready.'));
+		tui.print();
 		return model;
 	} catch (err) {
-		spinner.clear();
-		clack.log.error(`Error: ${err instanceof Error ? err.message : err}`, { spacing: 0 });
+		tui.stopSpinner();
+		tui.print(chalk.red(`Error: ${err instanceof Error ? err.message : err}`));
 		process.exit(-1);
 	}
 };
 
 const main = async () => {
 	const model = await load();
+	const titleHuman = `${chalk.blue('■')} Human`;
+	const titleAgent = `${chalk.green('●')} Gobby`;
 	while (true) {
-		const promptText = await clack.text({
-			message: 'Human',
-			placeholder: 'Type a message or press CTRL+C to quit...',
-		});
-		clack.log.message();
-		if (clack.isCancel(promptText)) {
-			break;
-		}
-		const cleanPrompt = promptText.trim();
-		if (!cleanPrompt) {
-			continue;
+		tui.print(titleHuman);
+		const prompt = await tui.prompt();
+		if (prompt !== null) {
+			tui.print();
+		} else {
+			tui.print('Exiting...');
+			tui.print();
+			process.exit(0);
 		}
 		const stream = new PassThrough({ encoding: 'utf-8' });
-		stream.once('data', (chunk) => {
-			spinner.clear();
-			clack.log.message('\x1b[A\x1b[A\x1b[A');
-			clack.stream.info(stream);
-			stream.write('Gobby\n');
-			stream.write(chunk);
-		});
-
 		const abortController = new AbortController();
-		const sigintHandler = () => abortController.abort();
-		const spinner = clack.spinner({
-			withGuide: false,
-			signal: abortController.signal,
-		});
-
-		const originalExit = process.exit;
-		process.exit = (code?: number) => {
-			if (code === 0) {
-				abortController.abort();
-				return undefined as never;
-			} else {
-				return originalExit(code);
-			}
+		const interruptHandler = () => {
+			tui.stopSpinner();
+			abortController.abort();
 		};
-
 		try {
-			process.on('SIGINT', sigintHandler);
-			spinner.start('Thinking...');
+			tui.print(titleAgent);
+			tui.once('interrupt', interruptHandler);
+			tui.startSpinner();
 			await Promise.all([
-				model.prompt(cleanPrompt, stream, abortController.signal),
-				new Promise<void>((resolve, reject) => {
-					stream.once('close', () => {
-						resolve();
-					});
-					stream.once('error', (err) => {
-						reject(err);
-					});
+				tui.stream(stream),
+				model.prompt({
+					text: prompt.trim(),
+					signal: abortController.signal,
+					stream,
 				}),
 			]);
-			if (abortController.signal.aborted) {
-				continue;
-			}
 		} catch (err) {
-			if (abortController.signal.aborted) {
+			tui.stopSpinner();
+			if (err instanceof ModelAbort) {
+				tui.print(chalk.dim('(interrupted)'));
+				continue;
+			} else {
+				tui.print(chalk.red(`Error: ${err instanceof Error ? err.message : err}`));
 				continue;
 			}
-			const msg = err instanceof Error ? err.message : `${err}`;
-			spinner.error(`An error occurred:`);
-			clack.log.message(msg, {
-				spacing: 0,
-			});
 		} finally {
-			process.off('SIGINT', sigintHandler);
-			process.exit = originalExit;
+			tui.off('interrupt', interruptHandler);
+			tui.print();
 		}
 	}
 };

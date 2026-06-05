@@ -1,90 +1,87 @@
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { createWriteStream } from 'node:fs';
 import { mkdirSync, statSync, renameSync } from 'node:fs';
 import { ReadableStream } from 'node:stream/web';
 import { Readable } from 'node:stream';
 
-import * as clack from '@clack/prompts';
-import { downloadFile } from '@huggingface/hub';
+import chalk from 'chalk';
 import isOnline from 'is-online';
+import { downloadFile } from '@huggingface/hub';
+import { tui } from './terminal';
 
 /**
- * Hugging Face Model Downloader Options.
+ * Model Downloader Options.
  */
-export interface DownloadOptions {
+export interface DownloadModelOptions {
 	repo: string;
 	path: string;
 	outputDir: string;
 }
 
 /**
- * Hugging Face Model Downloader.
+ * Blob Download Options.
  */
-export async function downloadModel(opts: DownloadOptions): Promise<string> {
-	const { repo, path, outputDir } = opts;
-	const destPath = join(outputDir, path);
+export interface DownloadBlobOptions {
+	path: string;
+	blob: Blob;
+}
 
-	const existing = statSync(destPath, { throwIfNoEntry: false });
-	if (existing) {
-		return destPath;
-	} else {
-		clack.log.message('Brain is not found, fetching from Hugging Face...', {
-			spacing: 0,
+export const downloadBlob = async ({ path, blob }: DownloadBlobOptions) => {
+	const totalSize = blob.size;
+	const existingSize = statSync(path, { throwIfNoEntry: false })?.size ?? 0;
+	mkdirSync(dirname(path), {
+		recursive: true,
+	});
+	const blobRemains = existingSize > 0 ? blob.slice(existingSize) : blob;
+	const inputStream = Readable.fromWeb(blobRemains.stream() as ReadableStream);
+	const writeStream = createWriteStream(path, {
+		flags: existingSize > 0 ? 'a' : 'w',
+	});
+	const startDownload = () => {
+		return new Promise<void>((resolve, reject) => {
+			let downloadedBytes = existingSize;
+			inputStream.on('data', (chunk: Buffer) => {
+				downloadedBytes = downloadedBytes + chunk.length;
+				tui.updateProgress(downloadedBytes);
+			});
+			inputStream.on('error', (err) => {
+				reject(err);
+			});
+			writeStream.on('error', (err) => {
+				reject(err);
+			});
+			writeStream.on('finish', () => {
+				resolve();
+			});
+			inputStream.pipe(writeStream);
 		});
 	}
+	tui.startProgress(totalSize, existingSize);
+	return startDownload().finally(() => {
+		tui.stopProgress();
+		tui.erase();
+	});
+};
 
+/**
+ * Hugging Face Model Downloader.
+ */
+export async function downloadModel(opts: DownloadModelOptions): Promise<string> {
+	const { repo, path, outputDir } = opts;
+	const destPath = join(outputDir, path);
+	const tempPath = `${destPath}.part`;
+	if (statSync(destPath, { throwIfNoEntry: false })) {
+		return destPath;
+	}
+	tui.print(chalk.dim('Brain is not found, fetching from Hugging Face...'));
 	if (!(await isOnline())) {
 		throw new Error('Failed to establish network connection.');
 	}
-
 	const blob = await downloadFile({ repo, path });
 	if (!blob) {
 		throw new Error(`Failed to resolve remote file "${path}" in repo "${repo}".`);
-	} else {
-		mkdirSync(outputDir, { recursive: true });
 	}
-
-	const tempPath = `${destPath}.part`;
-	const existingSize = statSync(tempPath, { throwIfNoEntry: false })?.size ?? 0;
-	const totalSize = blob.size;
-
-	const bar = clack.progress({ max: totalSize, withGuide: false });
-	bar.start();
-	bar.advance(existingSize);
-
-	const blobRemains = existingSize > 0 ? blob.slice(existingSize) : blob;
-	const nodeStream = Readable.fromWeb(blobRemains.stream() as ReadableStream);
-	const writeStream = createWriteStream(tempPath, {
-		flags: existingSize > 0 ? 'a' : 'w',
-	});
-
-	let downloadedBytes = existingSize;
-	await new Promise<void>((resolve, reject) => {
-		nodeStream.on('data', (chunk: Buffer) => {
-			downloadedBytes = downloadedBytes + chunk.length;
-			const percentage = Math.floor((downloadedBytes / totalSize) * 100);
-			bar.advance(chunk.length, `Downloading (${percentage}%)`);
-		});
-
-		nodeStream.on('error', (err) => {
-			bar.error(err.message);
-			reject(err);
-		});
-
-		writeStream.on('error', (err) => {
-			bar.error(err.message);
-			reject(err);
-		});
-
-		writeStream.on('finish', () => {
-			bar.clear();
-			clack.log.message('Download complete.', { spacing: 0 });
-			resolve();
-		});
-
-		nodeStream.pipe(writeStream);
-	});
-
+	await downloadBlob({ blob, path: tempPath });
 	renameSync(tempPath, destPath);
 	return destPath;
 }

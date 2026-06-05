@@ -1,9 +1,11 @@
-import { PassThrough, Writable } from 'node:stream';
+import { Writable } from 'node:stream';
 import {
 	getLlama,
 	Llama,
 	LlamaChatSession,
 	ChatSessionModelFunctions,
+	LlamaModel,
+	LlamaContext,
 } from 'node-llama-cpp';
 
 /**
@@ -30,11 +32,27 @@ export interface ModelResponse {
 }
 
 /**
+ * Model Prompt.
+ */
+export interface ModelPrompt {
+	text: string;
+	signal?: AbortSignal;
+	stream?: Writable;
+}
+
+/**
+ * Model Abort Signal.
+ */
+export class ModelAbort extends Error { }
+
+/**
  * Model Container.
  */
 export class Model {
 	private static llama?: Llama;
+	private context?: LlamaContext;
 	private session?: LlamaChatSession;
+	private model?: LlamaModel;
 
 	constructor(private opts: ModelOptions) {
 		return;
@@ -45,46 +63,74 @@ export class Model {
 	 */
 	public async load() {
 		const llama = await this.getLlama();
-		const model = await llama.loadModel({
+		this.model = await llama.loadModel({
 			modelPath: this.opts.path,
 		});
-		const context = await model.createContext({
+		this.context = await this.model.createContext({
 			contextSize: this.opts.contextSize,
 			flashAttention: true,
 		});
 		this.session = new LlamaChatSession({
-			contextSequence: context.getSequence(),
+			contextSequence: this.context.getSequence(),
 			systemPrompt: this.opts.systemPrompt,
 		});
+	}
+
+	/**
+	 * Disposes resources.
+	 */
+	public async dispose() {
+		if (this.session) {
+			this.session.dispose();
+		}
+		if (this.context) {
+			await this.context.dispose();
+		}
+		if (this.model) {
+			await this.model.dispose();
+		}
+		if (Model.llama) {
+			await Model.llama.dispose();
+		}
 	}
 
 	/**
 	 * Prompts loaded model.
 	 * @remarks Loads model into the memory if it's not loaded already.
 	 */
-	public async prompt(
-		text: string,
-		stream?: Writable,
-		signal?: AbortSignal,
-	): Promise<ModelResponse> {
-		let buffer = '';
-		try {
-			const session = await this.getSession();
+	public async prompt(prompt: ModelPrompt) {
+		const session = await this.getSession();
+		const waitForAbort = () => {
+			return new Promise<never>((_, reject) => {
+				const signal = prompt.signal;
+				if (!signal) {
+					return;
+				}
+				const existingHandler = signal.onabort;
+				signal.onabort = (event) => {
+					existingHandler?.call(signal, event);
+					prompt.stream?.end();
+					reject(new ModelAbort());
+				};
+			});
+		};
+		const runInference = async (): Promise<ModelResponse> => {
 			try {
-				await session.prompt(text, {
-					signal,
-					stopOnAbortSignal: true,
+				let buffer = '';
+				await session.prompt(prompt.text, {
 					functions: this.opts.functions,
 					temperature: this.opts.temperature ?? 0.25,
+					signal: prompt.signal,
+					stopOnAbortSignal: true,
 					onTextChunk: (chunk) => {
-						if (stream) {
+						if (prompt.stream) {
 							if (buffer.length === 0 && chunk.trim().length === 0) {
 								return; // trim beginning
 							} else if (/\s\s\s$/i.test(buffer + chunk)) {
 								return; // trim empty lines
 							} else {
+								prompt.stream.write(chunk);
 								buffer = buffer + chunk;
-								stream.write(chunk);
 							}
 						}
 					},
@@ -97,15 +143,19 @@ export class Model {
 				const message = err instanceof Error ? err.message : `${err}`;
 				history.push({
 					type: 'system',
-					text: `An error occured: ${message}`,
+					text: `An error occurred: ${message}`,
 				});
 				session.setChatHistory(history);
 				throw err;
 			}
+		};
+		try {
+			return await Promise.race([
+				waitForAbort(),
+				runInference(),
+			]);
 		} finally {
-			if (stream) {
-				stream.end();
-			}
+			prompt.stream?.end();
 		}
 	}
 
@@ -115,13 +165,14 @@ export class Model {
 	 */
 	private async getLlama() {
 		if (!Model.llama) {
+			process.env.GGML_METAL_NO_RESIDENCY = '1';
 			Model.llama = await getLlama();
 		}
 		return Model.llama!;
 	}
 
 	/**
-	 * Gets an active model session or createsa  new.
+	 * Gets an active model session or creates a new.
 	 * @private
 	 */
 	private async getSession() {
