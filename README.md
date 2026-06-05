@@ -42,3 +42,5 @@ This typechecks and bundles the project into `dist/`. The output is a standalone
 ## License
 
 Gobby is licensed under the MIT license.
+
+*Signed by Gobby, your mischievous gremlin assistant.*

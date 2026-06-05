@@ -1,6 +1,11 @@
-import { join, resolve } from 'node:path';
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { join, resolve, relative, dirname, isAbsolute } from 'node:path';
+import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
 import { Agent } from '../agent';
+
+const isInsideCwd = (resolvedPath: string): boolean => {
+	const rel = relative(process.cwd(), resolvedPath);
+	return !rel.startsWith('..') && !isAbsolute(rel);
+};
 
 export const filesystemCurrentWorkingDirectory = Agent.function({
 	description: 'Get the absolute path of the current working directory.',
@@ -22,7 +27,7 @@ export const filesystemCurrentWorkingDirectory = Agent.function({
 });
 
 export const filesystemList = Agent.function({
-	description: 'List all files and directories in a specified folder path.',
+	description: 'List all files and directories in a specified folder path. Only paths inside the current working directory are allowed.',
 	params: {
 		type: 'object',
 		required: ['path'],
@@ -37,6 +42,11 @@ export const filesystemList = Agent.function({
 	handler: async ({ path }: { path: string }) => {
 		try {
 			const resolvedPath = resolve(path);
+			if (!isInsideCwd(resolvedPath)) {
+				return {
+					error: `Access denied: "${path}" is outside the current working directory. You can only access paths within: ${process.cwd()}`,
+				};
+			}
 			const items = await readdir(resolvedPath);
 			const files = await Promise.all(
 				items.map(async (item) => {
@@ -71,7 +81,7 @@ export const filesystemList = Agent.function({
 });
 
 export const filesystemRead = Agent.function({
-	description: 'Read the contents of a file at the specified path (as UTF-8 text).',
+	description: 'Read the contents of a file at the specified path (as UTF-8 text). Only paths inside the current working directory are allowed.',
 	params: {
 		type: 'object',
 		required: ['path'],
@@ -86,6 +96,11 @@ export const filesystemRead = Agent.function({
 	handler: async ({ path }: { path: string }) => {
 		try {
 			const resolvedPath = resolve(path);
+			if (!isInsideCwd(resolvedPath)) {
+				return {
+					error: `Access denied: "${path}" is outside the current working directory. You can only access paths within: ${process.cwd()}`,
+				};
+			}
 			const content = await readFile(resolvedPath, 'utf-8');
 			return {
 				path: resolvedPath,
@@ -94,6 +109,46 @@ export const filesystemRead = Agent.function({
 		} catch (err) {
 			return {
 				error: `Failed to read file: ${path}`,
+			};
+		}
+	},
+});
+
+export const filesystemWrite = Agent.function({
+	description:
+		'Write text content to a file at the specified path, creating it (and any missing parent directories) if it does not exist, or overwriting it if it does. Only paths inside the current working directory are allowed.',
+	params: {
+		type: 'object',
+		required: ['path', 'content'],
+		properties: {
+			path: {
+				type: 'string',
+				description:
+					'The path of the file to write (relative to the current working directory or absolute). Must be inside the current working directory.',
+			},
+			content: {
+				type: 'string',
+				description: 'The UTF-8 text content to write to the file.',
+			},
+		},
+	},
+	handler: async ({ path, content }: { path: string; content: string }) => {
+		try {
+			const resolvedPath = resolve(path);
+			if (!isInsideCwd(resolvedPath)) {
+				return {
+					error: `Access denied: "${path}" is outside the current working directory. You can only write files within: ${process.cwd()}`,
+				};
+			}
+			await mkdir(dirname(resolvedPath), { recursive: true });
+			await writeFile(resolvedPath, content, 'utf-8');
+			return {
+				path: resolvedPath,
+				bytesWritten: Buffer.byteLength(content, 'utf-8'),
+			};
+		} catch (err) {
+			return {
+				error: `Failed to write file: ${path}`,
 			};
 		}
 	},
