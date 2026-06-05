@@ -56,7 +56,7 @@ export async function downloadModel({
 	await new Promise<void>((resolve, reject) => {
 		nodeStream.on('data', (chunk: Buffer) => {
 			downloadedBytes = downloadedBytes + chunk.length;
-			const percentage = Math.floor(downloadedBytes / totalSize * 100);
+			const percentage = Math.floor((downloadedBytes / totalSize) * 100);
 			bar.advance(chunk.length, `${percentage}%`);
 		});
 

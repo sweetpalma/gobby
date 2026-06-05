@@ -9,7 +9,7 @@ const spinner = clack.spinner({
 	withGuide: false,
 });
 
-clack.intro('Symon Agent v1.0');
+clack.intro('Gobby Agent v1.0');
 clack.log.message(`Brain: ${MODEL_REPO_NAME}`, {
 	spacing: 0,
 });
@@ -22,7 +22,7 @@ spinner.stop('Agent is ready.');
 while (true) {
 	try {
 		const promptText = await clack.text({
-			message: 'User',
+			message: 'Human',
 			placeholder: 'Type a message or press CTRL+C to quit...',
 		});
 		clack.log.message();
@@ -37,12 +37,12 @@ while (true) {
 		}
 
 		spinner.start('Thinking...');
-		const response = await session.prompt(cleanPrompt, {
+		const response = await session.promptWithMeta(cleanPrompt, {
 			functions,
 		});
 
-		spinner.stop('Agent');
-		clack.log.message(response.trim(), {
+		spinner.stop('Gobby');
+		clack.log.message(response.responseText.trim(), {
 			spacing: 0,
 		});
 	} catch (err) {
