@@ -13,8 +13,6 @@ export interface DownloadOptions {
 
 /**
  * Downloads a model from Hugging Face Hub.
- * Supports download resumption using HTTP Range requests via Blob slicing,
- * and skips download if the file is already fully downloaded.
  */
 export async function downloadModel({ repo, path, outputDir }: DownloadOptions): Promise<string> {
   const blob = await downloadFile({ repo, path });
@@ -47,7 +45,7 @@ export async function downloadModel({ repo, path, outputDir }: DownloadOptions):
   const bar = new cliProgress.SingleBar({
     etaBuffer: 2500,
     fps: 2,
-    format: 'Downloading | {bar} | {percentage}% | ETA: {eta}s | {value}/{total}',
+    format: 'Downloading model | {bar} | {percentage}% | ETA: {eta}s | {value}/{total}',
     formatValue: (value, options, type) => {
       if (type === 'value' || type === 'total') {
         return (value / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
