@@ -62,12 +62,18 @@ export class Model {
 	 * Prompts loaded model.
 	 * @remarks Loads model into the memory if it's not loaded already.
 	 */
-	public async prompt(text: string, stream?: Writable): Promise<ModelResponse> {
+	public async prompt(
+		text: string,
+		stream?: Writable,
+		signal?: AbortSignal,
+	): Promise<ModelResponse> {
 		let buffer = '';
 		try {
 			const session = await this.getSession();
 			try {
 				await session.prompt(text, {
+					signal,
+					stopOnAbortSignal: true,
 					functions: this.opts.functions,
 					temperature: this.opts.temperature ?? 0.25,
 					onTextChunk: (chunk) => {

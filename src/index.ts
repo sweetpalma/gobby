@@ -10,15 +10,14 @@ import { SYSTEM_PROMPT } from './prompts/system';
 import { downloadModel } from './utils/download';
 import { config } from './config';
 
-const spinner = clack.spinner({
-	withGuide: false,
-});
-
 const load = async () => {
 	await config.load();
 	clack.intro('Gobby Agent v1.0');
 	clack.log.message(`Brain: ${config.get('modelRepo')}`, {
 		spacing: 0,
+	});
+	const spinner = clack.spinner({
+		withGuide: false,
 	});
 	try {
 		const path = await downloadModel({
@@ -46,30 +45,49 @@ const load = async () => {
 const main = async () => {
 	const model = await load();
 	while (true) {
+		const promptText = await clack.text({
+			message: 'Human',
+			placeholder: 'Type a message or press CTRL+C to quit...',
+		});
+		clack.log.message();
+		if (clack.isCancel(promptText)) {
+			break;
+		}
+		const cleanPrompt = promptText.trim();
+		if (!cleanPrompt) {
+			continue;
+		}
+		const stream = new PassThrough({ encoding: 'utf-8' });
+		stream.once('data', (chunk) => {
+			spinner.clear();
+			clack.log.message('\x1b[A\x1b[A\x1b[A');
+			clack.stream.info(stream);
+			stream.write('Gobby\n');
+			stream.write(chunk);
+		});
+
+		const abortController = new AbortController();
+		const sigintHandler = () => abortController.abort();
+		const spinner = clack.spinner({
+			withGuide: false,
+			signal: abortController.signal,
+		});
+
+		const originalExit = process.exit;
+		process.exit = (code?: number) => {
+			if (code === 0) {
+				abortController.abort();
+				return undefined as never;
+			} else {
+				return originalExit(code);
+			}
+		};
+
 		try {
-			const promptText = await clack.text({
-				message: 'Human',
-				placeholder: 'Type a message or press CTRL+C to quit...',
-			});
-			clack.log.message();
-			if (clack.isCancel(promptText)) {
-				break;
-			}
-			const cleanPrompt = promptText.trim();
-			if (!cleanPrompt) {
-				continue;
-			}
-			const stream = new PassThrough({ encoding: 'utf-8' });
-			stream.once('data', (chunk) => {
-				spinner.clear();
-				clack.log.message('\x1b[A\x1b[A\x1b[A');
-				clack.stream.info(stream);
-				stream.write('Gobby\n');
-				stream.write(chunk);
-			});
+			process.on('SIGINT', sigintHandler);
 			spinner.start('Thinking...');
 			await Promise.all([
-				model.prompt(cleanPrompt, stream),
+				model.prompt(cleanPrompt, stream, abortController.signal),
 				new Promise<void>((resolve, reject) => {
 					stream.once('close', () => {
 						resolve();
@@ -79,12 +97,21 @@ const main = async () => {
 					});
 				}),
 			]);
+			if (abortController.signal.aborted) {
+				continue;
+			}
 		} catch (err) {
+			if (abortController.signal.aborted) {
+				continue;
+			}
 			const msg = err instanceof Error ? err.message : `${err}`;
 			spinner.error(`An error occurred:`);
 			clack.log.message(msg, {
 				spacing: 0,
 			});
+		} finally {
+			process.off('SIGINT', sigintHandler);
+			process.exit = originalExit;
 		}
 	}
 };
