@@ -30,6 +30,14 @@ export const CONFIG_DEFAULTS: ConfigSchema = {
 };
 
 /**
+ * Config Options.
+ */
+export interface ConfigOptions {
+	workspace: string;
+	params?: Partial<ConfigSchema>;
+}
+
+/**
  * Config Container.
  */
 export class Config {
@@ -37,9 +45,15 @@ export class Config {
 		...CONFIG_DEFAULTS,
 	};
 
-	constructor(public readonly workspace: string) {
-		return;
+	constructor(opts: ConfigOptions) {
+		this.workspace = opts.workspace;
+		Object.assign(this.params, opts.params ?? {});
 	}
+
+	/**
+	 * Workspace root path.
+	 */
+	public readonly workspace: string;
 
 	/**
 	 * Workspace config path.
@@ -53,6 +67,13 @@ export class Config {
 	 */
 	public get modelsPath() {
 		return join(this.workspace, 'models');
+	}
+
+	/**
+	 * Workspace memory path.
+	 */
+	public get memoryPath() {
+		return join(this.workspace, 'memory.yml');
 	}
 
 	/**

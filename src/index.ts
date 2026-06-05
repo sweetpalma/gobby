@@ -9,7 +9,7 @@ import chalk from 'chalk';
 import * as functions from './functions';
 import { Agent, AgentAbort } from './agent';
 import { Terminal } from './utils/terminal';
-import { Config } from './config';
+import { Config } from './utils/config';
 
 const title = `                                           
 ┏┓          
@@ -24,7 +24,9 @@ const tui = new Terminal({
 
 const agent = new Agent({
 	functions,
-	config: new Config(process.env.GOBBY_WORKSPACE ?? join(homedir(), '.gobby')),
+	config: new Config({
+		workspace: process.env.GOBBY_WORKSPACE ?? join(homedir(), '.gobby'),
+	}),
 });
 
 const load = async () => {

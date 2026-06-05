@@ -1,10 +1,12 @@
 import { EventEmitter } from 'node:events';
+import { mapValues } from 'es-toolkit';
+
 import { downloadModel } from './utils/download';
+import { Memory } from './utils/memory';
 import { SYSTEM_PROMPT } from './prompts/system';
-import { Config } from './config';
+import { Config } from './utils/config';
 import {
 	Model,
-	ModelFunction,
 	ModelResponse,
 	ModelPrompt,
 	ModelAbort,
@@ -59,6 +61,9 @@ export class Agent extends EventEmitter<AgentEvents> {
 		super();
 		this.functions = functions;
 		this.config = config;
+		this.memory = new Memory({
+			path: this.config.memoryPath,
+		});
 	}
 
 	/**
@@ -69,15 +74,29 @@ export class Agent extends EventEmitter<AgentEvents> {
 	}
 
 	/**
+	 * Agent memory.
+	 */
+	public readonly memory: Memory;
+
+	/**
 	 * Agent config.
 	 */
 	public readonly config: Config;
+
+	/**
+	 * Agent system prompt.
+	 */
+	public get systemPrompt() {
+		const memory = `\nThings you remember about the user:\n${this.memory.format()}`;
+		return SYSTEM_PROMPT + memory;
+	}
 
 	/**
 	 * Downloads and loads the agent model.
 	 */
 	public async load() {
 		await this.config.load();
+		await this.memory.load();
 		const path = await downloadModel({
 			repo: this.config.get('modelRepo'),
 			path: this.config.get('modelPath'),
@@ -89,7 +108,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 		this.emit('load');
 		this.loadedModel = new Model({
 			path,
-			systemPrompt: SYSTEM_PROMPT,
+			systemPrompt: this.systemPrompt,
 			contextSize: this.config.get('contextSize'),
 			functions: this.getFunctionsWithContext(),
 		});
@@ -137,16 +156,11 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 * @private
 	 */
 	private getFunctionsWithContext() {
-		const boundFunctions: Record<string, ModelFunction> = {};
-		if (this.functions) {
-			for (const [key, def] of Object.entries(this.functions)) {
-				boundFunctions[key] = Model.function({
-					description: def.description,
-					params: def.params,
-					handler: (params) => def.handler(params, this),
-				});
-			}
-		}
-		return boundFunctions;
+		return this.functions && mapValues(this.functions, (fn) => {
+			return Model.function({
+				...fn,
+				handler: (params) => fn.handler(params, this),
+			});
+		});
 	}
 }

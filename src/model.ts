@@ -26,6 +26,7 @@ export interface ModelOptions {
  */
 export interface ModelPrompt {
 	text: string;
+	skipHistory?: boolean;
 	signal?: AbortSignal;
 	stream?: Writable;
 }
@@ -145,6 +146,7 @@ export class Model {
 			});
 		};
 		const runInference = async (): Promise<ModelResponse> => {
+			const history = session.getChatHistory();
 			try {
 				let buffer = '';
 				await session.prompt(prompt.text, {
@@ -169,14 +171,19 @@ export class Model {
 					text: buffer,
 				};
 			} catch (err) {
-				const history = session.getChatHistory();
 				const message = err instanceof Error ? err.message : `${err}`;
-				history.push({
-					type: 'system',
-					text: `An error occurred: ${message}`,
-				});
-				session.setChatHistory(history);
+				session.setChatHistory([
+					...session.getChatHistory(),
+					{
+						type: 'system',
+						text: `An error occurred: ${message}`,
+					},
+				]);
 				throw err;
+			} finally {
+				if (prompt.skipHistory) {
+					session.setChatHistory(history);
+				}
 			}
 		};
 		try {
