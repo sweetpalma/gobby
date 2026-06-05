@@ -10,25 +10,25 @@ export const MODEL_CONTEXT_LENGTH = 32000;
 
 export { downloadModelFrom };
 export const downloadModel = async () => {
-    return downloadModelFrom({
-        repo: MODEL_REPO_NAME,
-        path: MODEL_REPO_PATH,
-        outputDir: MODEL_STORAGE,
-    });
+	return downloadModelFrom({
+		repo: MODEL_REPO_NAME,
+		path: MODEL_REPO_PATH,
+		outputDir: MODEL_STORAGE,
+	});
 };
 
 export const loadModel = async () => {
-    const llama = await getLlama();
-    const modelPath = await downloadModel();
-    return llama.loadModel({ modelPath });
+	const llama = await getLlama();
+	const modelPath = await downloadModel();
+	return llama.loadModel({ modelPath });
 };
 
 export const createSession = async () => {
-    const model = await loadModel();
-    const context = await model.createContext({
-        contextSize: MODEL_CONTEXT_LENGTH,
-    });
-    return new LlamaChatSession({
-        contextSequence: context.getSequence(),
-    });
+	const model = await loadModel();
+	const context = await model.createContext({
+		contextSize: MODEL_CONTEXT_LENGTH,
+	});
+	return new LlamaChatSession({
+		contextSequence: context.getSequence(),
+	});
 };
