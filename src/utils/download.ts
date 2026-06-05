@@ -1,6 +1,6 @@
+import { join } from 'node:path';
 import { createWriteStream, mkdirSync, statSync } from 'node:fs';
 import { Readable } from 'node:stream';
-import { join } from 'node:path';
 
 import * as clack from '@clack/prompts';
 import { downloadFile } from '@huggingface/hub';
@@ -29,10 +29,10 @@ export async function downloadModel({
 
 	const totalSize = blob.size;
 	const destPath = join(outputDir, path);
-
 	const stat = statSync(destPath, { throwIfNoEntry: false });
-	let existingSize = 0;
+	mkdirSync(outputDir, { recursive: true });
 
+	let existingSize = 0;
 	if (stat) {
 		existingSize = stat.size;
 		if (existingSize === totalSize) {
