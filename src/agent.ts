@@ -158,6 +158,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 */
 	public async prompt(prompt: ModelPrompt) {
 		this.emit('prompt', prompt);
+		this.model.systemPrompt = this.systemPrompt;
 		const response = await this.model.prompt(prompt);
 		this.emit('promptComplete', prompt, response);
 		return response;

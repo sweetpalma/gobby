@@ -89,14 +89,14 @@ export class Model {
 	}
 
 	/**
-	 * Gets current LLAMA status.
+	 * Model status.
 	 */
 	public get loaded() {
 		return !!this.loadedSession;
 	}
 
 	/**
-	 * Gets current LLAMA session.
+	 * Model session.
 	 * @remarks Throws ReferenceError if model is not loaded.
 	 */
 	public get session() {
@@ -105,6 +105,34 @@ export class Model {
 		} else {
 			return this.loadedSession;
 		}
+	}
+
+	/**
+	 * Model System Prompt.
+	 */
+	public get systemPrompt() {
+		return this.opts.systemPrompt;
+	}
+
+	/**
+	 * Model System Prompt.
+	 */
+	public set systemPrompt(systemPrompt: string | undefined) {
+		this.opts.systemPrompt = systemPrompt;
+		if (!this.loaded) {
+			return;
+		}
+		this.session.setChatHistory(
+			this.session.getChatHistory().map((item) => {
+				if (item.type !== 'system') {
+					return item;
+				}
+				return {
+					...item,
+					text: systemPrompt ?? '',
+				};
+			})
+		);
 	}
 
 	/**
