@@ -13,15 +13,25 @@ import { downloadModel } from './utils/download';
 import { Terminal } from './utils/terminal';
 import { Config } from './config';
 
-const tui = new Terminal();
+const title = `                                           
+┏┓          
+┃┓┏┓┣┓┣┓┓┏
+┗┛┗┛┗┛┗┛┗┫
+v0.1.0   ┛
+`;
+
 const config = new Config(
 	process.env.GOBBY_WORKSPACE ?? join(homedir(), '.gobby'),
 );
 
+const tui = new Terminal({
+	maxLineLength: 80,
+});
+
 const load = async () => {
 	await config.load();
-	tui.print('Gobby Agent v1.0');
-	tui.print(chalk.dim(`Brain: ${config.get('modelRepo')}`));
+	tui.print(chalk.green(title.trim()));
+	tui.print();
 	try {
 		const path = await downloadModel({
 			repo: config.get('modelRepo'),
@@ -29,7 +39,7 @@ const load = async () => {
 			outputDir: config.modelsPath,
 			tui,
 		});
-		tui.startSpinner('Warming up...');
+		tui.startSpinner('Loading...');
 		const model = new Model({
 			path,
 			functions,
@@ -38,12 +48,10 @@ const load = async () => {
 		});
 		await model.load();
 		tui.stopSpinner();
-		tui.print(chalk.dim('Agent is ready.'));
-		tui.print();
 		return model;
 	} catch (err) {
 		tui.stopSpinner();
-		tui.print(chalk.red(`Error: ${err instanceof Error ? err.message : err}`));
+		tui.print(`${chalk.red('Error')}: ${err instanceof Error ? err.message : err}`);
 		process.exit(-1);
 	}
 };
@@ -51,7 +59,7 @@ const load = async () => {
 const main = async () => {
 	const model = await load();
 	while (true) {
-		tui.print(`${chalk.dim('●')} Human`);
+		tui.print(chalk.dim('● Human'));
 		const prompt = await tui.prompt({ prefix: chalk.dim('└ ') });
 		if (prompt !== null) {
 			tui.print();
@@ -68,8 +76,8 @@ const main = async () => {
 		};
 		try {
 			tui.once('interrupt', interruptHandler);
-			tui.print(`${chalk.green('◆')} Gobby`);
-			tui.startSpinner();
+			tui.print(chalk.green('◆ Gobby'));
+			tui.startSpinner('Thinking...');
 			await Promise.all([
 				tui.stream(stream, { prefix: chalk.green('└ ') }),
 				model.prompt({
@@ -81,11 +89,11 @@ const main = async () => {
 		} catch (err) {
 			tui.stopSpinner();
 			if (err instanceof ModelAbort) {
-				tui.print(chalk.dim('(interrupted)'));
+				tui.print(chalk.dim('[interrupted]'));
 				continue;
 			} else {
-				tui.print(chalk.red(`Error: ${err instanceof Error ? err.message : err}`));
-				continue;
+				const msg = `${chalk.red('Error')}: ${err instanceof Error ? err.message : err}`;
+				tui.print(chalk.green('└ ') + msg);
 			}
 		} finally {
 			tui.off('interrupt', interruptHandler);

@@ -75,7 +75,8 @@ export async function downloadModel(opts: DownloadModelOptions): Promise<string>
 	if (statSync(destPath, { throwIfNoEntry: false })) {
 		return destPath;
 	}
-	tui?.print(chalk.dim('Brain is not found, fetching from Hugging Face...'));
+	tui?.print('Brain missing!');
+	tui?.print(chalk.gray('Scavenging Hugging Face for a new one...'));
 	if (!(await isOnline())) {
 		throw new Error('Failed to establish network connection.');
 	}
@@ -85,5 +86,6 @@ export async function downloadModel(opts: DownloadModelOptions): Promise<string>
 	}
 	await downloadBlob({ tui, blob, path: tempPath });
 	renameSync(tempPath, destPath);
+	tui?.erase();
 	return destPath;
 }

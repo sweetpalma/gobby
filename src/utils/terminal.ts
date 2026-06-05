@@ -1,6 +1,7 @@
 import { stdin, stdout } from 'node:process';
 import { Interface, createInterface } from 'node:readline/promises';
-import { Readable, Writable } from 'node:stream';
+import { ReadStream, WriteStream } from 'node:tty';
+import { Readable } from 'node:stream';
 import { EventEmitter } from 'node:events';
 
 import stringWidth from 'string-width';
@@ -8,13 +9,15 @@ import terminalSize from 'terminal-size';
 import { SingleBar, Presets } from 'cli-progress';
 import createSpinner, { Ora } from 'ora';
 import ansi from 'ansi-escapes';
+import chalk from 'chalk';
 
 /**
  * Terminal Options.
  */
 export interface TerminalOptions {
-	output?: Writable;
-	input?: Readable;
+	input?: ReadStream;
+	output?: WriteStream;
+	maxLineLength?: number;
 }
 
 /**
@@ -28,28 +31,20 @@ export interface TerminalFormatting {
  * Terminal Event Map.
  * @internal
  */
-export interface TerminalEventMap {
+export interface TerminalEvents {
 	interrupt: [];
-}
-
-/**
- * Terminal Event Handler Type.
- * @internal
- */
-export interface TerminalEventHandler<T extends keyof TerminalEventMap> {
-	(...args: TerminalEventMap[T]): void;
 }
 
 /**
  * Terminal Container.
  */
-export class Terminal {
-	private emitter = new EventEmitter<TerminalEventMap>();
+export class Terminal extends EventEmitter<TerminalEvents> {
 	private progress: SingleBar;
 	private session: Interface;
 	private spinner: Ora;
 
 	constructor(private readonly opts: TerminalOptions = {}) {
+		super();
 		this.io = {
 			input: opts.input ?? stdin,
 			output: opts.output ?? stdout,
@@ -61,15 +56,15 @@ export class Terminal {
 		this.spinner = createSpinner({
 			stream: this.io.output,
 			discardStdin: false,
-			color: false
+			color: 'white',
 		})
 		this.progress = new SingleBar({
 			format: '{bar} | {percentage}%',
 			stream: this.io.output,
 		}, Presets.rect);
 		this.session.on('SIGINT', () => {
-			if (this.emitter.listenerCount('interrupt')) {
-				this.emitter.emit('interrupt');
+			if (this.listenerCount('interrupt')) {
+				this.emit('interrupt');
 			} else {
 				process.emit('SIGINT');
 			}
@@ -80,8 +75,8 @@ export class Terminal {
 	 * I/O streams.
 	 */
 	public readonly io: {
-		input: Readable;
-		output: Writable;
+		input: ReadStream;
+		output: WriteStream;
 	};
 
 	/**
@@ -93,54 +88,20 @@ export class Terminal {
 	}
 
 	/**
-	 * Binds an event listener.
-	 * @param type - Event type.
-	 * @param handler - Event listener.
-	 */
-	public on<T extends keyof TerminalEventMap>(
-		type: T,
-		handler: TerminalEventHandler<T>,
-	) {
-		this.emitter.on(type, handler);
-	}
-
-	/**
-	 * Binds an event listener (runs one time).
-	 * @param type - Event type.
-	 * @param handler - Event listener.
-	 */
-	public once<T extends keyof TerminalEventMap>(
-		type: T,
-		handler: TerminalEventHandler<T>,
-	) {
-		this.emitter.once(type, handler);
-	}
-
-	/**
-	 * Unbinds and event listener.
-	 * @param type - Event type.
-	 * @param handler - Event listener.
-	 */
-	public off<T extends keyof TerminalEventMap>(
-		type: T,
-		handler: TerminalEventHandler<T>,
-	) {
-		this.emitter.off(type, handler);
-	}
-
-	/**
 	 * Starts a spinner.
 	 */
 	public startSpinner(text?: string, formatting: TerminalFormatting = {}) {
 		this.spinner.prefixText = formatting.prefix ?? '';
-		this.spinner.start(text ?? ' ');
+		this.spinner.start(chalk.dim(text ?? ' '));
 	}
 
 	/**
 	 * Stops a spinner.
 	 */
 	public stopSpinner() {
-		this.spinner.stop();
+		if (this.spinner.isSpinning) {
+			this.spinner.stop();
+		}
 	}
 
 	/**
@@ -220,18 +181,21 @@ export class Terminal {
 	 * @param stream - Stream to output.
 	 */
 	public async stream(stream: Readable, formatting: TerminalFormatting = {}) {
-		const maxLineWidth = this.size.width - stringWidth(formatting.prefix ?? '') - 1;
+		const prefixWidth = stringWidth(formatting.prefix ?? '');
+		const maxLineLength = Math.min(
+			this.opts.maxLineLength ?? Number.MAX_SAFE_INTEGER,
+			this.size.width - prefixWidth,
+		);
 		return new Promise<void>((resolve, reject) => {
+			let buffer = '';
 			let col = 0;
 			let row = 0;
-			let buffer = '';
 			const startLine = (newline: boolean) => {
 				if (newline) {
 					this.write('\n');
 				}
 				if (row >= 1) {
-					const indent = ' '.repeat(stringWidth(formatting.prefix ?? ''));
-					this.write(indent);
+					this.write(' '.repeat(prefixWidth));
 				} else {
 					this.stopSpinner();
 					this.stopProgress();
@@ -243,10 +207,10 @@ export class Terminal {
 			const flush = () => {
 				if (buffer.length > 0) {
 					const bufferWidth = stringWidth(buffer);
-					if (col > 0 && col + bufferWidth > maxLineWidth) {
+					if (col > 0 && col + bufferWidth > maxLineLength) {
 						startLine(true);
 					}
-					if (col + bufferWidth <= maxLineWidth) {
+					if (col + bufferWidth <= maxLineLength) {
 						this.write(buffer);
 						col = col + bufferWidth;
 						buffer = '';
@@ -254,7 +218,7 @@ export class Terminal {
 					}
 					for (const char of buffer) {
 						const charWidth = stringWidth(char);
-						if (col + charWidth > maxLineWidth) {
+						if (col + charWidth > maxLineLength) {
 							startLine(true);
 						}
 						this.write(char);
@@ -271,7 +235,7 @@ export class Terminal {
 					switch (char) {
 						case ' ': {
 							flush();
-							if (col > 0 && col < maxLineWidth) {
+							if (col > 0 && col < maxLineLength) {
 								this.write(' ');
 								col = col + 1;
 							}
@@ -294,7 +258,9 @@ export class Terminal {
 			});
 			stream.on('end', () => {
 				flush();
-				this.write('\n');
+				if (row > 0) {
+					this.write('\n');
+				}
 				resolve();
 			});
 		});
