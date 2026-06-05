@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { createWriteStream, mkdirSync, statSync } from 'node:fs';
+import { ReadableStream } from 'node:stream/web';
 import { Readable } from 'node:stream';
 
 import * as clack from '@clack/prompts';
@@ -47,7 +48,7 @@ export async function downloadModel({
 	bar.advance(existingSize);
 
 	const blobRemains = existingSize > 0 ? blob.slice(existingSize) : blob;
-	const nodeStream = Readable.fromWeb(blobRemains.stream() as any);
+	const nodeStream = Readable.fromWeb(blobRemains.stream() as ReadableStream);
 	const writeStream = createWriteStream(destPath, {
 		flags: existingSize > 0 ? 'a' : 'w',
 	});

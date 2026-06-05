@@ -4,22 +4,31 @@ import { fileURLToPath } from 'node:url';
 import * as clack from '@clack/prompts';
 
 import * as functions from './functions';
-import { downloadModel, loadModel, MODEL_REPO_NAME } from './model';
+import { Model } from './model';
 import { SYSTEM_PROMPT } from './prompts/system';
+import { downloadModel } from './utils/download';
 import { Queue } from './utils/queue';
+import { config } from './config';
 
 const spinner = clack.spinner({
 	withGuide: false,
 });
 
 const load = async () => {
+	await config.load();
 	clack.intro('Gobby Agent v1.0');
-	clack.log.message(`Brain: ${MODEL_REPO_NAME}`, {
+	clack.log.message(`Brain: ${config.get('modelRepo')}`, {
 		spacing: 0,
 	});
-	const modelPath = await downloadModel();
+
+	const path = await downloadModel({
+		repo: config.get('modelRepo'),
+		path: config.get('modelPath'),
+		outputDir: config.modelsPath,
+	});
+
 	spinner.start('Brain installed, warming up...');
-	const session = await loadModel(modelPath, SYSTEM_PROMPT);
+	const session = await (new Model({ path, systemPrompt: SYSTEM_PROMPT })).load();
 	spinner.stop('Agent is ready.');
 	return session;
 };

@@ -23,7 +23,9 @@
   "dependencies": {
     "@clack/prompts": "^1.4.0",
     "@huggingface/hub": "^2.12.0",
-    "node-llama-cpp": "^3.18.1"
+    "node-llama-cpp": "^3.18.1",
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/cli-progress": "^3.11.6",

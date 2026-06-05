@@ -1,33 +1,30 @@
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-
 import { getLlama, LlamaChatSession } from 'node-llama-cpp';
-import { downloadModel as downloadModelFrom } from './utils/download';
 
-export const MODEL_REPO_NAME = 'unsloth/Qwen3.5-4B-GGUF';
-export const MODEL_REPO_PATH = 'Qwen3.5-4B-Q4_K_M.gguf';
+export interface ModelOptions {
+	path: string;
+	systemPrompt?: string;
+	contextSize?: number;
+}
 
-export const MODEL_STORAGE = join(homedir(), '.gobby', 'models');
-export const MODEL_CONTEXT_LENGTH = 32000;
+export class Model {
+	private session?: LlamaChatSession;
 
-export { downloadModelFrom };
-export const downloadModel = async () => {
-	return downloadModelFrom({
-		repo: MODEL_REPO_NAME,
-		path: MODEL_REPO_PATH,
-		outputDir: MODEL_STORAGE,
-	});
-};
+	constructor(private opts: ModelOptions) {
+		return;
+	}
 
-export const loadModel = async (modelPath: string, systemPrompt?: string) => {
-	const llama = await getLlama();
-	const model = await llama.loadModel({ modelPath });
-	const context = await model.createContext({
-		contextSize: MODEL_CONTEXT_LENGTH,
-		flashAttention: true,
-	});
-	return new LlamaChatSession({
-		contextSequence: context.getSequence(),
-		systemPrompt,
-	});
-};
+	public async load() {
+		const llama = await getLlama();
+		const model = await llama.loadModel({
+			modelPath: this.opts.path,
+		});
+		const context = await model.createContext({
+			contextSize: this.opts.contextSize,
+			flashAttention: true,
+		});
+		return this.session = new LlamaChatSession({
+			contextSequence: context.getSequence(),
+			systemPrompt: this.opts.systemPrompt,
+		});
+	}
+}
