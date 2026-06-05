@@ -1,5 +1,5 @@
 import { stdin, stdout } from 'node:process';
-import { Interface, createInterface } from 'node:readline/promises';
+import { createInterface } from 'node:readline/promises';
 import { ReadStream, WriteStream } from 'node:tty';
 import { Readable } from 'node:stream';
 import { EventEmitter } from 'node:events';
@@ -56,9 +56,12 @@ export class Terminal extends EventEmitter<TerminalEvents> {
 		});
 		this.progress = new SingleBar(
 			{
-				format: '{bar} | {percentage}%',
-				clearOnComplete: true,
 				stream: this.io.output,
+				format: '{bar} | {percentage}% | {eta_formatted}',
+				etaBuffer: 250,
+				fps: 10,
+				clearOnComplete: true,
+				hideCursor: true,
 			},
 			Presets.rect,
 		);
