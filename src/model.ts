@@ -1,13 +1,11 @@
 import { Writable } from 'node:stream';
+import { Mutex } from 'es-toolkit';
 import {
 	getLlama,
 	defineChatSessionFunction,
-	Llama,
 	LlamaChatSession,
 	GbnfJsonSchema,
 	GbnfJsonSchemaToType,
-	LlamaModel,
-	LlamaContext,
 } from 'node-llama-cpp';
 
 /**
@@ -76,10 +74,8 @@ export class ModelAbort extends Error {
  * Model Container.
  */
 export class Model {
-	private static llama?: Llama;
-	private context?: LlamaContext;
-	private session?: LlamaChatSession;
-	private model?: LlamaModel;
+	private loadedSession?: LlamaChatSession;
+	private sessionMutex = new Mutex();
 
 	constructor(private opts: ModelOptions) {
 		return;
@@ -93,36 +89,61 @@ export class Model {
 	}
 
 	/**
+	 * Gets current LLAMA status.
+	 */
+	public get loaded() {
+		return !!this.loadedSession;
+	}
+
+	/**
+	 * Gets current LLAMA session.
+	 * @remarks Throws ReferenceError if model is not loaded.
+	 */
+	public get session() {
+		if (!this.loadedSession) {
+			throw new ReferenceError('Session is not loaded.');
+		} else {
+			return this.loadedSession;
+		}
+	}
+
+	/**
 	 * Loads model into the memory.
 	 */
 	public async load() {
-		const llama = await this.getLlama();
-		this.model = await llama.loadModel({
-			modelPath: this.opts.path,
-		});
-		this.context = await this.model.createContext({
-			contextSize: this.opts.contextSize,
-			flashAttention: true,
-		});
-		this.session = new LlamaChatSession({
-			contextSequence: this.context.getSequence(),
-			systemPrompt: this.opts.systemPrompt,
-		});
+		await this.sessionMutex.acquire();
+		try {
+			const llama = await getLlama();
+			const model = await llama.loadModel({
+				modelPath: this.opts.path,
+			});
+			const context = await model.createContext({
+				contextSize: this.opts.contextSize,
+				flashAttention: true,
+			});
+			this.loadedSession = new LlamaChatSession({
+				contextSequence: context.getSequence(),
+				systemPrompt: this.opts.systemPrompt,
+			});
+		} finally {
+			this.sessionMutex.release();
+		}
 	}
 
 	/**
 	 * Disposes resources.
-	 * @remarks Does not dispose the core LLAMA instance.
 	 */
 	public async dispose() {
-		if (this.session) {
-			this.session.dispose();
-		}
-		if (this.context) {
-			await this.context.dispose();
-		}
-		if (this.model) {
-			await this.model.dispose();
+		await this.sessionMutex.acquire();
+		try {
+			if (!this.loadedSession) {
+				return;
+			}
+			// Dependant objects are also disposed:
+			// https://node-llama-cpp.withcat.ai/guide/objects-lifecycle#llama-instances
+			await this.loadedSession.model.llama.dispose();
+		} finally {
+			this.sessionMutex.release();
 		}
 	}
 
@@ -131,7 +152,6 @@ export class Model {
 	 * @remarks Loads model into the memory if it's not loaded already.
 	 */
 	public async prompt(prompt: ModelPrompt) {
-		const session = await this.getSession();
 		const waitForAbort = () => {
 			return new Promise<never>((_, reject) => {
 				const abort = () => {
@@ -148,6 +168,7 @@ export class Model {
 			});
 		};
 		const runInference = async (): Promise<ModelResponse> => {
+			const session = this.session;
 			const history = session.getChatHistory();
 			try {
 				let buffer = '';
@@ -186,33 +207,12 @@ export class Model {
 				}
 			}
 		};
+		await this.sessionMutex.acquire();
 		try {
 			return await Promise.race([waitForAbort(), runInference()]);
 		} finally {
+			this.sessionMutex.release();
 			prompt.stream?.end();
 		}
-	}
-
-	/**
-	 * Gets an active LLAMA instance or create a new.
-	 * @private
-	 */
-	private async getLlama() {
-		if (!Model.llama) {
-			process.env.GGML_METAL_NO_RESIDENCY = '1';
-			Model.llama = await getLlama();
-		}
-		return Model.llama!;
-	}
-
-	/**
-	 * Gets an active model session or creates a new.
-	 * @private
-	 */
-	private async getSession() {
-		if (!this.session) {
-			await this.load();
-		}
-		return this.session!;
 	}
 }

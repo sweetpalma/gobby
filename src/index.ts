@@ -85,6 +85,7 @@ const loop = async (initialPrompt?: string, runOnce?: boolean) => {
 			} else {
 				tui.print('Exiting...');
 				tui.print();
+				await agent.dispose();
 				process.exit(0);
 			}
 		})();

@@ -85,6 +85,25 @@ export class Agent extends EventEmitter<AgentEvents> {
 	public readonly config: Config;
 
 	/**
+	 * Agent loaded model status.
+	 */
+	public get loaded() {
+		return !!this.loadedModel;
+	}
+
+	/**
+	 * Agent loaded model.
+	 * @remarks Throws Reference error if model is not loaded.
+	 */
+	public get model() {
+		if (!this.loadedModel) {
+			throw new ReferenceError('Model is not loaded.');
+		} else {
+			return this.loadedModel;
+		}
+	}
+
+	/**
 	 * Agent system prompt.
 	 */
 	public get systemPrompt() {
@@ -138,23 +157,10 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 * @returns Prompt result.
 	 */
 	public async prompt(prompt: ModelPrompt) {
-		const model = await this.getModel();
 		this.emit('prompt', prompt);
-		const response = await model.prompt(prompt);
+		const response = await this.model.prompt(prompt);
 		this.emit('promptComplete', prompt, response);
 		return response;
-	}
-
-	/**
-	 * Gets an active agent model or creates a new.
-	 * @private
-	 */
-	private async getModel() {
-		if (this.loadedModel) {
-			return this.loadedModel;
-		}
-		await this.load();
-		return this.loadedModel!;
 	}
 
 	/**
