@@ -104,5 +104,5 @@ export class Config {
  * Config Default Container.
  */
 export const config = new Config(
-	process.env.GOBBY_WORKSPACE ?? join(homedir(), '.gobby')
+	process.env.GOBBY_WORKSPACE ?? join(homedir(), '.gobby'),
 );

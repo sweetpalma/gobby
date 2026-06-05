@@ -1,5 +1,10 @@
-import { getLlama, Llama, LlamaChatSession, ChatSessionModelFunctions } from 'node-llama-cpp';
 import { PassThrough, Writable } from 'node:stream';
+import {
+	getLlama,
+	Llama,
+	LlamaChatSession,
+	ChatSessionModelFunctions,
+} from 'node-llama-cpp';
 
 /**
  * Model Container Options.
@@ -65,16 +70,18 @@ export class Model {
 				await session.prompt(text, {
 					functions: this.opts.functions,
 					temperature: this.opts.temperature ?? 0.25,
-					onTextChunk: stream && ((chunk) => {
-						if (buffer.length === 0 && chunk.trim().length === 0) {
-							return; // trim beginning
-						} else if (/\s\s\s$/i.test(buffer + chunk)) {
-							return; // trim empty lines
-						} else {
-							buffer = buffer + chunk;
-							stream.write(chunk);
+					onTextChunk: (chunk) => {
+						if (stream) {
+							if (buffer.length === 0 && chunk.trim().length === 0) {
+								return; // trim beginning
+							} else if (/\s\s\s$/i.test(buffer + chunk)) {
+								return; // trim empty lines
+							} else {
+								buffer = buffer + chunk;
+								stream.write(chunk);
+							}
 						}
-					}),
+					},
 				});
 				return {
 					text: buffer,

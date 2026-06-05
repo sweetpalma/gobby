@@ -20,23 +20,27 @@ const load = async () => {
 	clack.log.message(`Brain: ${config.get('modelRepo')}`, {
 		spacing: 0,
 	});
-
-	const path = await downloadModel({
-		repo: config.get('modelRepo'),
-		path: config.get('modelPath'),
-		outputDir: config.modelsPath,
-	});
-
-	spinner.start('Warming up...');
-	const model = new Model({
-		path,
-		systemPrompt: SYSTEM_PROMPT,
-		contextSize: config.get('contextSize'),
-		functions,
-	});
-	await model.load();
-	spinner.stop('Agent is ready.');
-	return model;
+	try {
+		const path = await downloadModel({
+			repo: config.get('modelRepo'),
+			path: config.get('modelPath'),
+			outputDir: config.modelsPath,
+		});
+		spinner.start('Warming up...');
+		const model = new Model({
+			path,
+			systemPrompt: SYSTEM_PROMPT,
+			contextSize: config.get('contextSize'),
+			functions,
+		});
+		await model.load();
+		spinner.stop('Agent is ready.');
+		return model;
+	} catch (err) {
+		spinner.clear();
+		clack.log.error(`Error: ${err instanceof Error ? err.message : err}`, { spacing: 0 });
+		process.exit(-1);
+	}
 };
 
 const main = async () => {
@@ -47,6 +51,7 @@ const main = async () => {
 				message: 'Human',
 				placeholder: 'Type a message or press CTRL+C to quit...',
 			});
+			clack.log.message();
 			if (clack.isCancel(promptText)) {
 				break;
 			}
@@ -54,10 +59,6 @@ const main = async () => {
 			if (!cleanPrompt) {
 				continue;
 			}
-
-			clack.log.message();
-			spinner.start('Thinking...');
-
 			const stream = new PassThrough({ encoding: 'utf-8' });
 			stream.once('data', (chunk) => {
 				spinner.clear();
@@ -65,8 +66,8 @@ const main = async () => {
 				clack.stream.info(stream);
 				stream.write('Gobby\n');
 				stream.write(chunk);
-			})
-
+			});
+			spinner.start('Thinking...');
 			await Promise.all([
 				model.prompt(cleanPrompt, stream),
 				new Promise<void>((resolve, reject) => {
