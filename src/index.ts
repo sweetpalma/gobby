@@ -1,9 +1,10 @@
 import { join } from 'node:path';
 import * as clack from '@clack/prompts';
 
-import { SYSTEM_PROMPT } from './prompts/system';
-import { downloadModel, loadModel, MODEL_REPO_NAME } from './model';
 import * as functions from './functions';
+import { downloadModel, loadModel, MODEL_REPO_NAME } from './model';
+import { SYSTEM_PROMPT } from './prompts/system';
+import { Queue } from './utils/queue';
 
 const spinner = clack.spinner({
 	withGuide: false,
@@ -25,26 +26,39 @@ while (true) {
 			message: 'Human',
 			placeholder: 'Type a message or press CTRL+C to quit...',
 		});
-		clack.log.message();
 
 		if (clack.isCancel(promptText)) {
 			break;
 		}
-
 		const cleanPrompt = promptText.trim();
 		if (!cleanPrompt) {
 			continue;
 		}
 
+		clack.log.message();
 		spinner.start('Thinking...');
-		const response = await session.promptWithMeta(cleanPrompt, {
-			functions,
-		});
 
-		spinner.stop('Gobby');
-		clack.log.message(response.responseText.trim(), {
-			spacing: 0,
-		});
+		let stream = new Queue();
+		let buffer = '';
+		await session
+			.promptWithMeta(cleanPrompt, {
+				functions,
+				onTextChunk: (chunk: string) => {
+					if (buffer.length > 0 || chunk.trim().length > 0) {
+						if (buffer.length === 0) {
+							spinner.clear();
+							clack.log.message('\x1b[A\x1b[A\x1b[A');
+							clack.stream.info(stream);
+							stream.push('Gobby\n');
+						}
+						stream.push(chunk);
+						buffer = buffer + chunk;
+					}
+				},
+			})
+			.finally(() => {
+				stream.close();
+			});
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : `${err}`;
 		spinner.error(`An error occurred:`);
