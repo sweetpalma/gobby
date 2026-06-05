@@ -33,7 +33,7 @@ export const configWrite = Agent.function({
 			},
 			memorySize: {
 				type: 'number',
-				description: 'The maximum number of facts to remember (e.g. 100).',
+				description: 'The maximum size of persistent memory in characters (e.g. 4096).',
 			},
 		},
 	},

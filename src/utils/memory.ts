@@ -100,8 +100,8 @@ export class Memory {
 	}
 
 	/**
- * Loads facts from file.
- */
+	 * Loads facts from file.
+	 */
 	public async load() {
 		let str: string;
 		try {

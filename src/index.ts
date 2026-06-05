@@ -1,8 +1,6 @@
 #!/usr/bin/env node
-import { fileURLToPath } from 'node:url';
-import { realpathSync as resolve } from 'node:fs';
-import { PassThrough } from 'node:stream';
 import { homedir } from 'node:os';
+import { PassThrough } from 'node:stream';
 import { join } from 'node:path';
 
 import chalk from 'chalk';
