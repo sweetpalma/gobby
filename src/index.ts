@@ -2,14 +2,21 @@
 import { fileURLToPath } from 'node:url';
 import { realpathSync as resolve } from 'node:fs';
 import { PassThrough } from 'node:stream';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import chalk from 'chalk';
 
 import * as functions from './functions';
 import { Model, ModelAbort } from './model';
 import { SYSTEM_PROMPT } from './prompts/system';
 import { downloadModel } from './utils/download';
-import { tui } from './utils/terminal';
-import { config } from './config';
+import { Terminal } from './utils/terminal';
+import { Config } from './config';
+
+const tui = new Terminal();
+const config = new Config(
+	process.env.GOBBY_WORKSPACE ?? join(homedir(), '.gobby'),
+);
 
 const load = async () => {
 	await config.load();
@@ -20,6 +27,7 @@ const load = async () => {
 			repo: config.get('modelRepo'),
 			path: config.get('modelPath'),
 			outputDir: config.modelsPath,
+			tui,
 		});
 		tui.startSpinner('Warming up...');
 		const model = new Model({
@@ -42,11 +50,9 @@ const load = async () => {
 
 const main = async () => {
 	const model = await load();
-	const titleHuman = `${chalk.blue('■')} Human`;
-	const titleAgent = `${chalk.green('●')} Gobby`;
 	while (true) {
-		tui.print(titleHuman);
-		const prompt = await tui.prompt();
+		tui.print(`${chalk.blue('■')} Human`);
+		const prompt = await tui.prompt({ prefix: '└ ' });
 		if (prompt !== null) {
 			tui.print();
 		} else {
@@ -61,11 +67,11 @@ const main = async () => {
 			abortController.abort();
 		};
 		try {
-			tui.print(titleAgent);
 			tui.once('interrupt', interruptHandler);
+			tui.print(`${chalk.green('●')} Gobby`);
 			tui.startSpinner();
 			await Promise.all([
-				tui.stream(stream),
+				tui.stream(stream, { prefix: '└ ' }),
 				model.prompt({
 					text: prompt.trim(),
 					signal: abortController.signal,

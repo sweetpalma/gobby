@@ -1,6 +1,5 @@
 import { dirname, join } from 'node:path';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import yml from 'yaml';
 import zod from 'zod';
 
@@ -8,7 +7,7 @@ import zod from 'zod';
  * Config Schema.
  * @internal
  */
-export const ConfigSchema = zod.strictObject({
+export const ConfigSchema = zod.object({
 	modelRepo: zod.string(),
 	modelPath: zod.string(),
 	contextSize: zod.number(),
@@ -81,7 +80,8 @@ export class Config {
 			await this.save();
 			return;
 		}
-		const { data, error } = ConfigSchema.safeParse(yml.parse(str));
+		const partialSchema = ConfigSchema.partial();
+		const { data, error } = partialSchema.safeParse(yml.parse(str));
 		if (!error) {
 			Object.assign(this.params, data);
 		} else {
@@ -99,10 +99,3 @@ export class Config {
 		await writeFile(this.configPath, str);
 	}
 }
-
-/**
- * Config Default Container.
- */
-export const config = new Config(
-	process.env.GOBBY_WORKSPACE ?? join(homedir(), '.gobby'),
-);

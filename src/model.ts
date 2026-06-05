@@ -89,9 +89,6 @@ export class Model {
 		if (this.model) {
 			await this.model.dispose();
 		}
-		if (Model.llama) {
-			await Model.llama.dispose();
-		}
 	}
 
 	/**

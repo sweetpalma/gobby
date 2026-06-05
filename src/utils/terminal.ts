@@ -4,7 +4,8 @@ import { Readable, Writable } from 'node:stream';
 import { EventEmitter } from 'node:events';
 
 import terminalSize from 'terminal-size';
-import { SingleBar, Preset, Presets } from 'cli-progress';
+import { SingleBar, Presets } from 'cli-progress';
+import stringWidth from 'string-width';
 import createSpinner from 'ora';
 import ansi from 'ansi-escapes';
 
@@ -14,7 +15,13 @@ import ansi from 'ansi-escapes';
 export interface TerminalOptions {
 	output?: Writable;
 	input?: Readable;
-	lineWidth?: number;
+}
+
+/**
+ * Terminal Default Formatting.
+ */
+export interface TerminalFormatting {
+	prefix?: string;
 }
 
 /**
@@ -37,15 +44,19 @@ export interface TerminalEventHandler<T extends keyof TerminalEventMap> {
  * Terminal Container.
  */
 export class Terminal {
-	private session: Interface;
 	private progress = new SingleBar({ format: '{bar} | {percentage}%' }, Presets.rect);
 	private spinner = createSpinner({ discardStdin: false });
 	private emitter = new EventEmitter<TerminalEventMap>();
+	private session: Interface;
 
 	constructor(private readonly opts: TerminalOptions = {}) {
-		this.session = createInterface({
+		this.io = {
 			input: opts.input ?? stdin,
 			output: opts.output ?? stdout,
+		};
+		this.session = createInterface({
+			input: this.io.input,
+			output: this.io.output,
 		});
 		this.session.on('SIGINT', () => {
 			if (this.emitter.listenerCount('interrupt')) {
@@ -57,18 +68,19 @@ export class Terminal {
 	}
 
 	/**
+	 * I/O streams.
+	 */
+	public readonly io: {
+		input: Readable;
+		output: Writable;
+	};
+
+	/**
 	 * Gets current terminal size.
 	 */
 	public get size() {
 		const { columns: width, rows: height } = terminalSize();
 		return { width, height };
-	}
-
-	/**
-	 * Gets max allowed terminal line width.
-	 */
-	public get lineWidth() {
-		return this.opts.lineWidth ?? this.size.width - 16;
 	}
 
 	/**
@@ -147,10 +159,10 @@ export class Terminal {
 
 	/**
 	 * Writes the given text to the output.
-	 * @parma text - Text to write.
+	 * @param text - Text to write.
 	 */
 	public write(text?: string) {
-		this.session.write(text ?? '');
+		this.io.output.write(text ?? '');
 	}
 
 	/**
@@ -174,13 +186,13 @@ export class Terminal {
 	 * Prompts user.
 	 * @returns User input.
 	 */
-	public async prompt() {
+	public async prompt(formatting: TerminalFormatting = {}) {
 		return new Promise<string | null>((resolve, reject) => {
 			const interruptHandler = () => {
 				resolve(null);
 			};
 			this.once('interrupt', interruptHandler);
-			this.session.question('')
+			this.session.question(formatting.prefix ?? '')
 				.then((text) => {
 					resolve(text);
 				})
@@ -197,45 +209,86 @@ export class Terminal {
 	 * Writes the given stream to the output, and resolves when the stream has ended.
 	 * @param stream - Stream to output.
 	 */
-	public async stream(stream: Readable) {
+	public async stream(stream: Readable, formatting: TerminalFormatting = {}) {
+		const maxLineWidth = this.size.width - (formatting.prefix?.length ?? 0) - 8;
 		return new Promise<void>((resolve, reject) => {
-			let lineWidth = 0;
-			let lines = 0;
-			stream.on('data', (data: string) => {
-				if (lines === 0) {
+			let col = 0;
+			let row = 0;
+			let buffer = '';
+			const startLine = (newline: boolean) => {
+				if (newline) {
+					this.write('\n');
+				}
+				if (row >= 1) {
+					const indent = ' '.repeat(formatting.prefix?.length ?? 0);
+					this.write(indent);
+				} else {
 					this.stopSpinner();
 					this.stopProgress();
-					lines = 1;
+					this.write(formatting.prefix ?? '');
 				}
-				if (lineWidth < this.lineWidth) {
-					this.session.write(data);
-					lineWidth += data.length;
-				} else {
-					this.session.write('\n');
-					this.session.write(data.trimStart());
-					lineWidth = 0;
-					lines++;
+				row = row + 1;
+				col = 0;
+			};
+			const flush = () => {
+				if (buffer.length > 0) {
+					const bufferWidth = stringWidth(buffer);
+					if (col > 0 && col + bufferWidth > maxLineWidth) {
+						startLine(true);
+					}
+					// Short words:
+					if (col + bufferWidth <= maxLineWidth) {
+						this.write(buffer);
+						col = col + bufferWidth;
+						buffer = '';
+						return;
+					}
+					// Multi-line words (URLs, etc):
+					for (const char of buffer) {
+						const charWidth = stringWidth(char);
+						if (col + charWidth > maxLineWidth) {
+							startLine(true);
+						}
+						this.write(char);
+						col = col + charWidth;
+					}
+					buffer = '';
 				}
-				if (data.includes('\n')) {
-					lineWidth = 0;
-					lines++;
+			};
+			stream.on('data', (data: string) => {
+				for (const char of data) {
+					if (row === 0) {
+						startLine(false);
+					}
+					switch (char) {
+						case ' ': {
+							flush();
+							if (col > 0 && col < maxLineWidth) {
+								this.write(' ');
+								col = col + 1;
+							}
+							break;
+						}
+						case '\n': {
+							flush();
+							startLine(true);
+							break;
+						}
+						default: {
+							buffer = buffer + char;
+							break;
+						}
+					}
 				}
 			});
 			stream.on('error', (err) => {
 				reject(err);
 			});
 			stream.on('end', () => {
-				if (lines) {
-					this.session.write('\n');
-				}
+				flush();
+				this.write('\n');
 				resolve();
 			});
 		});
 	}
 }
-
-/**
- * Terminal Default Instance.
- */
-export const tui = new Terminal();
-export default tui;

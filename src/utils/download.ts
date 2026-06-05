@@ -7,7 +7,7 @@ import { Readable } from 'node:stream';
 import chalk from 'chalk';
 import isOnline from 'is-online';
 import { downloadFile } from '@huggingface/hub';
-import { tui } from './terminal';
+import type { Terminal } from './terminal';
 
 /**
  * Model Downloader Options.
@@ -16,6 +16,7 @@ export interface DownloadModelOptions {
 	repo: string;
 	path: string;
 	outputDir: string;
+	tui?: Terminal;
 }
 
 /**
@@ -24,9 +25,10 @@ export interface DownloadModelOptions {
 export interface DownloadBlobOptions {
 	path: string;
 	blob: Blob;
+	tui?: Terminal;
 }
 
-export const downloadBlob = async ({ path, blob }: DownloadBlobOptions) => {
+export const downloadBlob = async ({ path, blob, tui }: DownloadBlobOptions) => {
 	const totalSize = blob.size;
 	const existingSize = statSync(path, { throwIfNoEntry: false })?.size ?? 0;
 	mkdirSync(dirname(path), {
@@ -42,7 +44,7 @@ export const downloadBlob = async ({ path, blob }: DownloadBlobOptions) => {
 			let downloadedBytes = existingSize;
 			inputStream.on('data', (chunk: Buffer) => {
 				downloadedBytes = downloadedBytes + chunk.length;
-				tui.updateProgress(downloadedBytes);
+				tui?.updateProgress(downloadedBytes);
 			});
 			inputStream.on('error', (err) => {
 				reject(err);
@@ -56,10 +58,10 @@ export const downloadBlob = async ({ path, blob }: DownloadBlobOptions) => {
 			inputStream.pipe(writeStream);
 		});
 	}
-	tui.startProgress(totalSize, existingSize);
+	tui?.startProgress(totalSize, existingSize);
 	return startDownload().finally(() => {
-		tui.stopProgress();
-		tui.erase();
+		tui?.stopProgress();
+		tui?.erase();
 	});
 };
 
@@ -67,13 +69,13 @@ export const downloadBlob = async ({ path, blob }: DownloadBlobOptions) => {
  * Hugging Face Model Downloader.
  */
 export async function downloadModel(opts: DownloadModelOptions): Promise<string> {
-	const { repo, path, outputDir } = opts;
+	const { repo, path, outputDir, tui } = opts;
 	const destPath = join(outputDir, path);
 	const tempPath = `${destPath}.part`;
 	if (statSync(destPath, { throwIfNoEntry: false })) {
 		return destPath;
 	}
-	tui.print(chalk.dim('Brain is not found, fetching from Hugging Face...'));
+	tui?.print(chalk.dim('Brain is not found, fetching from Hugging Face...'));
 	if (!(await isOnline())) {
 		throw new Error('Failed to establish network connection.');
 	}
@@ -81,7 +83,7 @@ export async function downloadModel(opts: DownloadModelOptions): Promise<string>
 	if (!blob) {
 		throw new Error(`Failed to resolve remote file "${path}" in repo "${repo}".`);
 	}
-	await downloadBlob({ blob, path: tempPath });
+	await downloadBlob({ tui, blob, path: tempPath });
 	renameSync(tempPath, destPath);
 	return destPath;
 }
