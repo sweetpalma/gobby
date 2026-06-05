@@ -58,10 +58,8 @@ const main = async () => {
 								clack.stream.info(stream);
 								stream.push('Gobby\n');
 							}
-							if (!buffer.endsWith('\n\n')) {
-								buffer = buffer + chunk;
-								stream.push(chunk);
-							}
+							buffer = buffer + chunk;
+							stream.push(chunk);
 						}
 					},
 				})
