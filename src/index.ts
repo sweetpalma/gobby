@@ -51,8 +51,8 @@ const load = async () => {
 const main = async () => {
 	const model = await load();
 	while (true) {
-		tui.print(`${chalk.blue('■')} Human`);
-		const prompt = await tui.prompt({ prefix: '└ ' });
+		tui.print(`${chalk.dim('●')} Human`);
+		const prompt = await tui.prompt({ prefix: chalk.dim('└ ') });
 		if (prompt !== null) {
 			tui.print();
 		} else {
@@ -68,10 +68,10 @@ const main = async () => {
 		};
 		try {
 			tui.once('interrupt', interruptHandler);
-			tui.print(`${chalk.green('●')} Gobby`);
+			tui.print(`${chalk.green('◆')} Gobby`);
 			tui.startSpinner();
 			await Promise.all([
-				tui.stream(stream, { prefix: '└ ' }),
+				tui.stream(stream, { prefix: chalk.green('└ ') }),
 				model.prompt({
 					text: prompt.trim(),
 					signal: abortController.signal,

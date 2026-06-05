@@ -3,10 +3,10 @@ import { Interface, createInterface } from 'node:readline/promises';
 import { Readable, Writable } from 'node:stream';
 import { EventEmitter } from 'node:events';
 
+import stringWidth from 'string-width';
 import terminalSize from 'terminal-size';
 import { SingleBar, Presets } from 'cli-progress';
-import stringWidth from 'string-width';
-import createSpinner from 'ora';
+import createSpinner, { Ora } from 'ora';
 import ansi from 'ansi-escapes';
 
 /**
@@ -44,10 +44,10 @@ export interface TerminalEventHandler<T extends keyof TerminalEventMap> {
  * Terminal Container.
  */
 export class Terminal {
-	private progress = new SingleBar({ format: '{bar} | {percentage}%' }, Presets.rect);
-	private spinner = createSpinner({ discardStdin: false });
 	private emitter = new EventEmitter<TerminalEventMap>();
+	private progress: SingleBar;
 	private session: Interface;
+	private spinner: Ora;
 
 	constructor(private readonly opts: TerminalOptions = {}) {
 		this.io = {
@@ -58,6 +58,15 @@ export class Terminal {
 			input: this.io.input,
 			output: this.io.output,
 		});
+		this.spinner = createSpinner({
+			stream: this.io.output,
+			discardStdin: false,
+			color: false
+		})
+		this.progress = new SingleBar({
+			format: '{bar} | {percentage}%',
+			stream: this.io.output,
+		}, Presets.rect);
 		this.session.on('SIGINT', () => {
 			if (this.emitter.listenerCount('interrupt')) {
 				this.emitter.emit('interrupt');
@@ -122,7 +131,8 @@ export class Terminal {
 	/**
 	 * Starts a spinner.
 	 */
-	public startSpinner(text?: string) {
+	public startSpinner(text?: string, formatting: TerminalFormatting = {}) {
+		this.spinner.prefixText = formatting.prefix ?? '';
 		this.spinner.start(text ?? ' ');
 	}
 
@@ -210,7 +220,7 @@ export class Terminal {
 	 * @param stream - Stream to output.
 	 */
 	public async stream(stream: Readable, formatting: TerminalFormatting = {}) {
-		const maxLineWidth = this.size.width - (formatting.prefix?.length ?? 0) - 8;
+		const maxLineWidth = this.size.width - stringWidth(formatting.prefix ?? '') - 1;
 		return new Promise<void>((resolve, reject) => {
 			let col = 0;
 			let row = 0;
@@ -220,7 +230,7 @@ export class Terminal {
 					this.write('\n');
 				}
 				if (row >= 1) {
-					const indent = ' '.repeat(formatting.prefix?.length ?? 0);
+					const indent = ' '.repeat(stringWidth(formatting.prefix ?? ''));
 					this.write(indent);
 				} else {
 					this.stopSpinner();
@@ -236,14 +246,12 @@ export class Terminal {
 					if (col > 0 && col + bufferWidth > maxLineWidth) {
 						startLine(true);
 					}
-					// Short words:
 					if (col + bufferWidth <= maxLineWidth) {
 						this.write(buffer);
 						col = col + bufferWidth;
 						buffer = '';
 						return;
 					}
-					// Multi-line words (URLs, etc):
 					for (const char of buffer) {
 						const charWidth = stringWidth(char);
 						if (col + charWidth > maxLineWidth) {
