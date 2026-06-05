@@ -3,8 +3,8 @@ import { stdin as input, stdout as output } from 'node:process';
 import { join } from 'node:path';
 
 import { getLlama, LlamaChatSession } from 'node-llama-cpp';
-import { downloadModel } from './utils/download.js';
-import * as functions from './functions/index.js';
+import { downloadModel } from './utils/download';
+import * as functions from './functions';
 
 // Resolves to the root-level 'models' directory (which is ignored by .gitignore)
 const localModelPath = join(process.cwd(), 'models');

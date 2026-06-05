@@ -1,2 +1,2 @@
-export * from './listDownloadedModels.js';
-export * from './getCurrentDateTime.js';
+export * from './listDownloadedModels';
+export * from './getCurrentDateTime';

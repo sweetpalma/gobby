@@ -3,7 +3,8 @@
     /* Language and Environment */
     "target": "es2022", /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
     /* Modules */
-    "module": "nodenext", /* Specify what module code is generated. */
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "rootDir": "./src", /* Specify the root folder within your source files. */
     /* Emit */
     "outDir": "./dist", /* Specify an output folder for all emitted files. */
