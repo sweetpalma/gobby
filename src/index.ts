@@ -24,9 +24,9 @@ const load = async () => {
 		tui.startSpinner('Warming up...');
 		const model = new Model({
 			path,
+			functions,
 			systemPrompt: SYSTEM_PROMPT,
 			contextSize: config.get('contextSize'),
-			functions,
 		});
 		await model.load();
 		tui.stopSpinner();
