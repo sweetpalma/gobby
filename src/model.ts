@@ -23,12 +23,13 @@ export const loadModel = async () => {
 	return llama.loadModel({ modelPath });
 };
 
-export const createSession = async () => {
+export const createSession = async (systemPrompt?: string) => {
 	const model = await loadModel();
 	const context = await model.createContext({
 		contextSize: MODEL_CONTEXT_LENGTH,
 	});
 	return new LlamaChatSession({
 		contextSequence: context.getSequence(),
+		systemPrompt,
 	});
 };

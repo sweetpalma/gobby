@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import * as clack from '@clack/prompts';
 
+import { SYSTEM_PROMPT } from './prompts/system';
 import { createSession, MODEL_REPO_NAME } from './model';
 import * as functions from './functions';
 
@@ -12,7 +13,7 @@ try {
 
 	const loadingSpinner = clack.spinner();
 	loadingSpinner.start('Warming up the agent...');
-	const session = await createSession();
+	const session = await createSession(SYSTEM_PROMPT);
 	loadingSpinner.stop('Agent is ready.');
 
 	while (true) {
@@ -37,7 +38,7 @@ try {
 		responseSpinner.start('Thinking...');
 		const response = await session.prompt(cleanPrompt, {
 			functions,
-		})
+		});
 		responseSpinner.stop('Model');
 		clack.log.message(response.trim(), {
 			spacing: 0,
