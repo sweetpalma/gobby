@@ -1,4 +1,4 @@
-import { getLlama, ChatSessionModelFunctions, LlamaChatSession } from 'node-llama-cpp';
+import { getLlama, Llama, LlamaChatSession, ChatSessionModelFunctions } from 'node-llama-cpp';
 import { PassThrough, Writable } from 'node:stream';
 
 /**
@@ -28,7 +28,9 @@ export interface ModelResponse {
  * Model Container.
  */
 export class Model {
+	private static llama?: Llama;
 	private session?: LlamaChatSession;
+
 	constructor(private opts: ModelOptions) {
 		return;
 	}
@@ -37,7 +39,7 @@ export class Model {
 	 * Loads model into the memory.
 	 */
 	public async load() {
-		const llama = await getLlama();
+		const llama = await this.getLlama();
 		const model = await llama.loadModel({
 			modelPath: this.opts.path,
 		});
@@ -62,7 +64,7 @@ export class Model {
 			try {
 				await session.prompt(text, {
 					functions: this.opts.functions,
-					temperature: this.opts.temperature ?? 0.75,
+					temperature: this.opts.temperature ?? 0.25,
 					onTextChunk: stream && ((chunk) => {
 						if (buffer.length === 0 && chunk.trim().length === 0) {
 							return; // trim beginning
@@ -95,7 +97,18 @@ export class Model {
 	}
 
 	/**
-	 * Gets active model session or creates new.
+	 * Gets an active LLAMA instance or create a new.
+	 * @private
+	 */
+	private async getLlama() {
+		if (!Model.llama) {
+			Model.llama = await getLlama();
+		}
+		return Model.llama!;
+	}
+
+	/**
+	 * Gets an active model session or createsa  new.
 	 * @private
 	 */
 	private async getSession() {

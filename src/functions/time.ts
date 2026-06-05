@@ -1,6 +1,6 @@
 import { defineChatSessionFunction } from 'node-llama-cpp';
 
-export const time = defineChatSessionFunction({
+export const datetime = defineChatSessionFunction({
 	description: 'Get the current local date and time.',
 	params: {
 		type: 'object',
@@ -10,8 +10,8 @@ export const time = defineChatSessionFunction({
 		const now = new Date();
 		return {
 			iso: now.toISOString(),
-			local: now.toLocaleString(),
-			timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+			local: now.toLocaleString('en', { dateStyle: 'full', timeStyle: 'long' }),
+			timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 		};
 	},
 });
