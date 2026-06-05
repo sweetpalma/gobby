@@ -26,7 +26,6 @@ while (true) {
 			message: 'Human',
 			placeholder: 'Type a message or press CTRL+C to quit...',
 		});
-
 		if (clack.isCancel(promptText)) {
 			break;
 		}
@@ -40,10 +39,12 @@ while (true) {
 
 		let stream = new Queue();
 		let buffer = '';
+
 		await session
 			.promptWithMeta(cleanPrompt, {
 				functions,
-				onTextChunk: (chunk: string) => {
+				temperature: 0.75,
+				onTextChunk: (chunk) => {
 					if (buffer.length > 0 || chunk.trim().length > 0) {
 						if (buffer.length === 0) {
 							spinner.clear();
