@@ -57,11 +57,15 @@ export class Terminal extends EventEmitter<TerminalEvents> {
 			stream: this.io.output,
 			discardStdin: false,
 			color: 'white',
-		})
-		this.progress = new SingleBar({
-			format: '{bar} | {percentage}%',
-			stream: this.io.output,
-		}, Presets.rect);
+		});
+		this.progress = new SingleBar(
+			{
+				format: '{bar} | {percentage}%',
+				clearOnComplete: true,
+				stream: this.io.output,
+			},
+			Presets.rect,
+		);
 		this.session.on('SIGINT', () => {
 			if (this.listenerCount('interrupt')) {
 				this.emit('interrupt');
@@ -117,7 +121,6 @@ export class Terminal extends EventEmitter<TerminalEvents> {
 	public stopProgress() {
 		if (this.progress.isActive) {
 			this.progress.stop();
-			this.erase();
 		}
 	}
 
@@ -149,7 +152,8 @@ export class Terminal extends EventEmitter<TerminalEvents> {
 	 * Erases last line.
 	 */
 	public erase() {
-		this.write(ansi.eraseLine);
+		this.write(ansi.eraseEndLine);
+		this.write(ansi.eraseStartLine);
 		this.write(ansi.cursorPrevLine);
 	}
 
@@ -163,7 +167,8 @@ export class Terminal extends EventEmitter<TerminalEvents> {
 				resolve(null);
 			};
 			this.once('interrupt', interruptHandler);
-			this.session.question(formatting.prefix ?? '')
+			this.session
+				.question(formatting.prefix ?? '')
 				.then((text) => {
 					resolve(text);
 				})

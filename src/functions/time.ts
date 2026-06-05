@@ -1,6 +1,6 @@
-import { defineChatSessionFunction } from 'node-llama-cpp';
+import { Agent } from '../agent';
 
-export const datetime = defineChatSessionFunction({
+export const datetime = Agent.function({
 	description: 'Get the current local date and time.',
 	params: {
 		type: 'object',

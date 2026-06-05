@@ -7,9 +7,7 @@ import { join } from 'node:path';
 import chalk from 'chalk';
 
 import * as functions from './functions';
-import { Model, ModelAbort } from './model';
-import { SYSTEM_PROMPT } from './prompts/system';
-import { downloadModel } from './utils/download';
+import { Agent, AgentAbort } from './agent';
 import { Terminal } from './utils/terminal';
 import { Config } from './config';
 
@@ -20,44 +18,48 @@ const title = `
 v0.1.0   ┛
 `;
 
-const config = new Config(
-	process.env.GOBBY_WORKSPACE ?? join(homedir(), '.gobby'),
-);
-
 const tui = new Terminal({
 	maxLineLength: 80,
 });
 
+const agent = new Agent({
+	functions,
+	config: new Config(process.env.GOBBY_WORKSPACE ?? join(homedir(), '.gobby')),
+});
+
 const load = async () => {
-	await config.load();
 	tui.print(chalk.green(title.trim()));
 	tui.print();
 	try {
-		const path = await downloadModel({
-			repo: config.get('modelRepo'),
-			path: config.get('modelPath'),
-			outputDir: config.modelsPath,
-			tui,
+		agent.on('download', (pct) => {
+			tui.print('Brain missing!');
+			tui.print(chalk.gray('Scavenging Hugging Face for a new one...'));
+			tui.startProgress(100, pct);
 		});
-		tui.startSpinner('Loading...');
-		const model = new Model({
-			path,
-			functions,
-			systemPrompt: SYSTEM_PROMPT,
-			contextSize: config.get('contextSize'),
+		agent.on('downloadProgress', (pct) => {
+			tui.updateProgress(pct);
 		});
-		await model.load();
-		tui.stopSpinner();
-		return model;
+		agent.on('downloadComplete', () => {
+			tui.stopProgress();
+			tui.print(chalk.gray('Download complete.'));
+			tui.print();
+		});
+		agent.on('load', () => {
+			tui.startSpinner('Loading...');
+		});
+		agent.on('loadComplete', () => {
+			tui.stopSpinner();
+		});
+		await agent.load();
 	} catch (err) {
-		tui.stopSpinner();
 		tui.print(`${chalk.red('Error')}: ${err instanceof Error ? err.message : err}`);
 		process.exit(-1);
+	} finally {
+		agent.removeAllListeners();
 	}
 };
 
-const main = async () => {
-	const model = await load();
+const loop = async () => {
 	while (true) {
 		tui.print(chalk.dim('● Human'));
 		const prompt = await tui.prompt({ prefix: chalk.dim('└ ') });
@@ -80,7 +82,7 @@ const main = async () => {
 			tui.startSpinner('Thinking...');
 			await Promise.all([
 				tui.stream(stream, { prefix: chalk.green('└ ') }),
-				model.prompt({
+				agent.prompt({
 					text: prompt.trim(),
 					signal: abortController.signal,
 					stream,
@@ -88,7 +90,7 @@ const main = async () => {
 			]);
 		} catch (err) {
 			tui.stopSpinner();
-			if (err instanceof ModelAbort) {
+			if (err instanceof AgentAbort) {
 				tui.print(chalk.dim('[interrupted]'));
 				continue;
 			} else {
@@ -103,5 +105,5 @@ const main = async () => {
 };
 
 if (resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
-	main();
+	load().then(loop);
 }

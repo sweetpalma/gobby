@@ -1,8 +1,8 @@
-import { defineChatSessionFunction } from 'node-llama-cpp';
-import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { readFile, readdir, stat } from 'node:fs/promises';
+import { Agent } from '../agent';
 
-export const filesystemCurrentWorkingDirectory = defineChatSessionFunction({
+export const filesystemCurrentWorkingDirectory = Agent.function({
 	description: 'Get the absolute path of the current working directory.',
 	params: {
 		type: 'object',
@@ -21,7 +21,7 @@ export const filesystemCurrentWorkingDirectory = defineChatSessionFunction({
 	},
 });
 
-export const filesystemList = defineChatSessionFunction({
+export const filesystemList = Agent.function({
 	description: 'List all files and directories in a specified folder path.',
 	params: {
 		type: 'object',
@@ -70,7 +70,7 @@ export const filesystemList = defineChatSessionFunction({
 	},
 });
 
-export const filesystemRead = defineChatSessionFunction({
+export const filesystemRead = Agent.function({
 	description: 'Read the contents of a file at the specified path (as UTF-8 text).',
 	params: {
 		type: 'object',

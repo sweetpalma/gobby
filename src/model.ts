@@ -1,38 +1,28 @@
 import { Writable } from 'node:stream';
 import {
 	getLlama,
+	defineChatSessionFunction,
 	Llama,
 	LlamaChatSession,
-	ChatSessionModelFunctions,
+	GbnfJsonSchema,
+	GbnfJsonSchemaToType,
 	LlamaModel,
 	LlamaContext,
 } from 'node-llama-cpp';
 
 /**
- * Model Container Options.
+ * Model Options.
  */
 export interface ModelOptions {
 	path: string;
-	functions?: ModelFunctions;
+	functions?: Record<string, ModelFunction>;
 	systemPrompt?: string;
 	temperature?: number;
 	contextSize?: number;
 }
 
 /**
- * Model Container Functions.
- */
-export type ModelFunctions = ChatSessionModelFunctions;
-
-/**
- * Model Container Response.
- */
-export interface ModelResponse {
-	text: string;
-}
-
-/**
- * Model Prompt.
+ * Model Request (Prompt).
  */
 export interface ModelPrompt {
 	text: string;
@@ -41,9 +31,42 @@ export interface ModelPrompt {
 }
 
 /**
+ * Model Response.
+ */
+export interface ModelResponse {
+	text: string;
+}
+
+/**
+ * Model Function.
+ */
+export interface ModelFunction<T extends ModelFunctionParamSchema = any> {
+	description: string;
+	params: T;
+	handler: (params: ModelFunctionParamSchemaToType<T>) => unknown;
+}
+
+/**
+ * Model Function Parameter Schema.
+ * @internal
+ */
+export type ModelFunctionParamSchema = GbnfJsonSchema;
+
+/**
+ * Model Function Parameter Schema Transformer.
+ * @internal
+ */
+export type ModelFunctionParamSchemaToType<T extends ModelFunctionParamSchema> =
+	GbnfJsonSchemaToType<T>;
+
+/**
  * Model Abort Signal.
  */
-export class ModelAbort extends Error { }
+export class ModelAbort extends Error {
+	constructor(msg?: string) {
+		super(msg ?? 'Model inference was aborted.');
+	}
+}
 
 /**
  * Model Container.
@@ -56,6 +79,13 @@ export class Model {
 
 	constructor(private opts: ModelOptions) {
 		return;
+	}
+
+	/**
+	 * Defines a new agent function and returns it.
+	 */
+	public static function(def: ModelFunction) {
+		return defineChatSessionFunction(def) as ModelFunction;
 	}
 
 	/**
@@ -147,10 +177,7 @@ export class Model {
 			}
 		};
 		try {
-			return await Promise.race([
-				waitForAbort(),
-				runInference(),
-			]);
+			return await Promise.race([waitForAbort(), runInference()]);
 		} finally {
 			prompt.stream?.end();
 		}

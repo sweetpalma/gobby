@@ -4,10 +4,8 @@ import { mkdirSync, statSync, renameSync } from 'node:fs';
 import { ReadableStream } from 'node:stream/web';
 import { Readable } from 'node:stream';
 
-import chalk from 'chalk';
 import isOnline from 'is-online';
 import { downloadFile } from '@huggingface/hub';
-import type { Terminal } from './terminal';
 
 /**
  * Model Downloader Options.
@@ -16,7 +14,9 @@ export interface DownloadModelOptions {
 	repo: string;
 	path: string;
 	outputDir: string;
-	tui?: Terminal;
+	onDownload?: (pct: number) => void;
+	onProgress?: (pct: number) => void;
+	onComplete?: () => void;
 }
 
 /**
@@ -25,10 +25,12 @@ export interface DownloadModelOptions {
 export interface DownloadBlobOptions {
 	path: string;
 	blob: Blob;
-	tui?: Terminal;
+	onDownload?: (pct: number) => void;
+	onProgress?: (pct: number) => void;
+	onComplete?: () => void;
 }
 
-export const downloadBlob = async ({ path, blob, tui }: DownloadBlobOptions) => {
+export const downloadBlob = async ({ path, blob, ...events }: DownloadBlobOptions) => {
 	const totalSize = blob.size;
 	const existingSize = statSync(path, { throwIfNoEntry: false })?.size ?? 0;
 	mkdirSync(dirname(path), {
@@ -39,29 +41,24 @@ export const downloadBlob = async ({ path, blob, tui }: DownloadBlobOptions) => 
 	const writeStream = createWriteStream(path, {
 		flags: existingSize > 0 ? 'a' : 'w',
 	});
-	const startDownload = () => {
-		return new Promise<void>((resolve, reject) => {
-			let downloadedBytes = existingSize;
-			inputStream.on('data', (chunk: Buffer) => {
-				downloadedBytes = downloadedBytes + chunk.length;
-				tui?.updateProgress(downloadedBytes);
-			});
-			inputStream.on('error', (err) => {
-				reject(err);
-			});
-			writeStream.on('error', (err) => {
-				reject(err);
-			});
-			writeStream.on('finish', () => {
-				resolve();
-			});
-			inputStream.pipe(writeStream);
+	events.onDownload?.call(null, Math.floor((existingSize / totalSize) * 100));
+	return new Promise<void>((resolve, reject) => {
+		let downloadedBytes = existingSize;
+		inputStream.on('data', (chunk: Buffer) => {
+			downloadedBytes = downloadedBytes + chunk.length;
+			events.onProgress?.call(null, Math.floor((downloadedBytes / totalSize) * 100));
 		});
-	}
-	tui?.startProgress(totalSize, existingSize);
-	return startDownload().finally(() => {
-		tui?.stopProgress();
-		tui?.erase();
+		inputStream.on('error', (err) => {
+			reject(err);
+		});
+		writeStream.on('error', (err) => {
+			reject(err);
+		});
+		writeStream.on('finish', () => {
+			events.onComplete?.call(null);
+			resolve();
+		});
+		inputStream.pipe(writeStream);
 	});
 };
 
@@ -69,14 +66,12 @@ export const downloadBlob = async ({ path, blob, tui }: DownloadBlobOptions) => 
  * Hugging Face Model Downloader.
  */
 export async function downloadModel(opts: DownloadModelOptions): Promise<string> {
-	const { repo, path, outputDir, tui } = opts;
+	const { repo, path, outputDir, ...events } = opts;
 	const destPath = join(outputDir, path);
 	const tempPath = `${destPath}.part`;
 	if (statSync(destPath, { throwIfNoEntry: false })) {
 		return destPath;
 	}
-	tui?.print('Brain missing!');
-	tui?.print(chalk.gray('Scavenging Hugging Face for a new one...'));
 	if (!(await isOnline())) {
 		throw new Error('Failed to establish network connection.');
 	}
@@ -84,8 +79,7 @@ export async function downloadModel(opts: DownloadModelOptions): Promise<string>
 	if (!blob) {
 		throw new Error(`Failed to resolve remote file "${path}" in repo "${repo}".`);
 	}
-	await downloadBlob({ tui, blob, path: tempPath });
+	await downloadBlob({ blob, path: tempPath, ...events });
 	renameSync(tempPath, destPath);
-	tui?.erase();
 	return destPath;
 }
