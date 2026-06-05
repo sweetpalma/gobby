@@ -112,6 +112,7 @@ export class Model {
 
 	/**
 	 * Disposes resources.
+	 * @remarks Does not dispose the core LLAMA instance.
 	 */
 	public async dispose() {
 		if (this.session) {
@@ -133,16 +134,17 @@ export class Model {
 		const session = await this.getSession();
 		const waitForAbort = () => {
 			return new Promise<never>((_, reject) => {
-				const signal = prompt.signal;
-				if (!signal) {
-					return;
-				}
-				const existingHandler = signal.onabort;
-				signal.onabort = (event) => {
-					existingHandler?.call(signal, event);
+				const abort = () => {
 					prompt.stream?.end();
 					reject(new ModelAbort());
 				};
+				if (prompt.signal) {
+					if (!prompt.signal.aborted) {
+						prompt.signal.addEventListener('abort', abort, { once: true });
+					} else {
+						abort();
+					}
+				}
 			});
 		};
 		const runInference = async (): Promise<ModelResponse> => {
@@ -155,15 +157,13 @@ export class Model {
 					signal: prompt.signal,
 					stopOnAbortSignal: true,
 					onTextChunk: (chunk) => {
-						if (prompt.stream) {
-							if (buffer.length === 0 && chunk.trim().length === 0) {
-								return; // trim beginning
-							} else if (/\s\s\s$/i.test(buffer + chunk)) {
-								return; // trim empty lines
-							} else {
-								prompt.stream.write(chunk);
-								buffer = buffer + chunk;
-							}
+						if (buffer.length === 0 && chunk.trim().length === 0) {
+							return; // trim beginning
+						} else if (/\s\s\s$/i.test(buffer + chunk)) {
+							return; // trim empty lines
+						} else {
+							prompt.stream?.write(chunk);
+							buffer = buffer + chunk;
 						}
 					},
 				});
