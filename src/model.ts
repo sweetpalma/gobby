@@ -39,6 +39,7 @@ export interface ModelResponse {
 
 /**
  * Model Function.
+ * @remarks Parameters use GBNF JSON format schema.
  */
 export interface ModelFunction<T extends ModelFunctionParamSchema = any> {
 	description: string;
@@ -48,12 +49,14 @@ export interface ModelFunction<T extends ModelFunctionParamSchema = any> {
 
 /**
  * Model Function Parameter Schema.
+ * @remarks Parameters use GBNF JSON format schema.
  * @internal
  */
 export type ModelFunctionParamSchema = GbnfJsonSchema;
 
 /**
  * Model Function Parameter Schema Transformer.
+ * @remarks Parameters use GBNF JSON format schema.
  * @internal
  */
 export type ModelFunctionParamSchemaToType<T extends ModelFunctionParamSchema> =
