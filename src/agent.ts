@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { Mutex, mapValues } from 'es-toolkit';
+import { mapValues } from 'es-toolkit';
 
 import { downloadModel } from './utils/download';
 import { Memory } from './utils/memory';
@@ -55,7 +55,6 @@ export const AgentAbort = ModelAbort;
  */
 export class Agent extends EventEmitter<AgentEvents> {
 	private functions?: Record<string, AgentFunction>;
-	private loadingMutex = new Mutex();
 	private loadedModel?: Model;
 
 	constructor({ config, functions }: AgentOptions) {
@@ -100,32 +99,27 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 * Downloads and loads the agent model.
 	 */
 	public async load() {
-		await this.loadingMutex.acquire();
-		try {
-			await this.config.load();
-			await this.config.save();
-			await this.memory.load();
-			this.memory.lengthLimit = this.config.get('memorySize');
-			const path = await downloadModel({
-				repo: this.config.get('modelRepo'),
-				path: this.config.get('modelPath'),
-				outputDir: this.config.modelsPath,
-				onDownload: (pct) => this.emit('download', pct),
-				onProgress: (pct) => this.emit('downloadProgress', pct),
-				onComplete: () => this.emit('downloadComplete'),
-			});
-			this.emit('load');
-			this.loadedModel = new Model({
-				path,
-				systemPrompt: this.systemPrompt,
-				contextSize: this.config.get('contextSize'),
-				functions: this.getFunctionsWithContext(),
-			});
-			await this.loadedModel.load();
-			this.emit('loadComplete');
-		} finally {
-			this.loadingMutex.release();
-		}
+		await this.config.load();
+		await this.config.save();
+		await this.memory.load();
+		this.memory.lengthLimit = this.config.get('memorySize');
+		const path = await downloadModel({
+			repo: this.config.get('modelRepo'),
+			path: this.config.get('modelPath'),
+			outputDir: this.config.modelsPath,
+			onDownload: (pct) => this.emit('download', pct),
+			onProgress: (pct) => this.emit('downloadProgress', pct),
+			onComplete: () => this.emit('downloadComplete'),
+		});
+		this.emit('load');
+		this.loadedModel = new Model({
+			path,
+			systemPrompt: this.systemPrompt,
+			contextSize: this.config.get('contextSize'),
+			functions: this.getFunctionsWithContext(),
+		});
+		await this.loadedModel.load();
+		this.emit('loadComplete');
 	}
 
 	/**
