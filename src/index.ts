@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-import { realpathSync as resolve } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { realpathSync as resolve } from 'node:fs';
+import { PassThrough } from 'node:stream';
 import * as clack from '@clack/prompts';
 
 import * as functions from './functions';
 import { Model } from './model';
 import { SYSTEM_PROMPT } from './prompts/system';
 import { downloadModel } from './utils/download';
-import { Queue } from './utils/queue';
 import { config } from './config';
 
 const spinner = clack.spinner({
@@ -27,14 +27,20 @@ const load = async () => {
 		outputDir: config.modelsPath,
 	});
 
-	spinner.start('Brain installed, warming up...');
-	const session = await (new Model({ path, systemPrompt: SYSTEM_PROMPT })).load();
+	spinner.start('Warming up...');
+	const model = new Model({
+		path,
+		systemPrompt: SYSTEM_PROMPT,
+		contextSize: config.get('contextSize'),
+		functions,
+	});
+	await model.load();
 	spinner.stop('Agent is ready.');
-	return session;
+	return model;
 };
 
 const main = async () => {
-	const session = await load();
+	const model = await load();
 	while (true) {
 		try {
 			const promptText = await clack.text({
@@ -52,29 +58,26 @@ const main = async () => {
 			clack.log.message();
 			spinner.start('Thinking...');
 
-			let stream = new Queue<string>();
-			let buffer = '';
+			const stream = new PassThrough({ encoding: 'utf-8' });
+			stream.once('data', (chunk) => {
+				spinner.clear();
+				clack.log.message('\x1b[A\x1b[A\x1b[A');
+				clack.stream.info(stream);
+				stream.write('Gobby\n');
+				stream.write(chunk);
+			})
 
-			await session
-				.promptWithMeta(cleanPrompt, {
-					functions,
-					temperature: 0.75,
-					onTextChunk: (chunk) => {
-						if (buffer.length > 0 || chunk.trim().length > 0) {
-							if (buffer.length === 0) {
-								spinner.clear();
-								clack.log.message('\x1b[A\x1b[A\x1b[A');
-								clack.stream.info(stream);
-								stream.push('Gobby\n');
-							}
-							buffer = buffer + chunk;
-							stream.push(chunk);
-						}
-					},
-				})
-				.finally(() => {
-					stream.close();
-				});
+			await Promise.all([
+				model.prompt(cleanPrompt, stream),
+				new Promise<void>((resolve, reject) => {
+					stream.once('close', () => {
+						resolve();
+					});
+					stream.once('error', (err) => {
+						reject(err);
+					});
+				}),
+			]);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : `${err}`;
 			spinner.error(`An error occurred:`);
