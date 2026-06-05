@@ -4,6 +4,7 @@ import { ReadStream, WriteStream } from 'node:tty';
 import { Readable } from 'node:stream';
 import { EventEmitter } from 'node:events';
 
+import { debounce } from 'es-toolkit';
 import stringWidth from 'string-width';
 import terminalSize from 'terminal-size';
 import { SingleBar, Presets } from 'cli-progress';
@@ -40,7 +41,6 @@ export interface TerminalEvents {
  */
 export class Terminal extends EventEmitter<TerminalEvents> {
 	private progress: SingleBar;
-	private session: Interface;
 	private spinner: Ora;
 
 	constructor(private readonly opts: TerminalOptions = {}) {
@@ -49,10 +49,6 @@ export class Terminal extends EventEmitter<TerminalEvents> {
 			input: opts.input ?? stdin,
 			output: opts.output ?? stdout,
 		};
-		this.session = createInterface({
-			input: this.io.input,
-			output: this.io.output,
-		});
 		this.spinner = createSpinner({
 			stream: this.io.output,
 			discardStdin: false,
@@ -66,13 +62,13 @@ export class Terminal extends EventEmitter<TerminalEvents> {
 			},
 			Presets.rect,
 		);
-		this.session.on('SIGINT', () => {
+		process.on('SIGINT', debounce(() => {
 			if (this.listenerCount('interrupt')) {
 				this.emit('interrupt');
 			} else {
-				process.emit('SIGINT');
+				process.exit(0);
 			}
-		});
+		}, 100));
 	}
 
 	/**
@@ -158,26 +154,37 @@ export class Terminal extends EventEmitter<TerminalEvents> {
 	}
 
 	/**
+	 * Drains current input - for example, for piping.
+	 * @returns Drained input.
+	 */
+	public async drain() {
+		const chunks: Array<string> = [];
+		for await (const chunk of this.io.input) {
+			chunks.push(chunk.toString());
+		}
+		return chunks.join('');
+	}
+
+	/**
 	 * Prompts user.
 	 * @returns User input.
 	 */
 	public async prompt(formatting: TerminalFormatting = {}) {
+		const session = createInterface({
+			input: this.io.input,
+			output: this.io.output,
+		});
 		return new Promise<string | null>((resolve, reject) => {
-			const interruptHandler = () => {
+			session.once('SIGINT', () => {
 				resolve(null);
-			};
-			this.once('interrupt', interruptHandler);
-			this.session
+			});
+			session
 				.question(formatting.prefix ?? '')
-				.then((text) => {
-					resolve(text);
-				})
-				.catch((err) => {
-					reject(err);
-				})
-				.finally(() => {
-					this.off('interrupt', interruptHandler);
-				});
+				.then((text) => resolve(text))
+				.catch((err) => reject(err));
+		}).finally(() => {
+			session.close();
+			session.removeAllListeners();
 		});
 	}
 

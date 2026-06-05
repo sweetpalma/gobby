@@ -4,19 +4,28 @@ import { realpathSync as resolve } from 'node:fs';
 import { PassThrough } from 'node:stream';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+
 import chalk from 'chalk';
+import { Command } from 'commander';
 
 import * as functions from './functions';
 import { Agent, AgentAbort } from './agent';
 import { Terminal } from './utils/terminal';
 import { Config } from './utils/config';
+import { version } from '../package.json';
 
-const title = `                                           
-┏┓          
+const title = `
+┏┓        
 ┃┓┏┓┣┓┣┓┓┏
 ┗┛┗┛┗┛┗┛┗┫
-v0.1.0   ┛
+v$VER$   ┛
 `;
+
+const args = new Command()
+	.name('gobby')
+	.version(version)
+	.argument('[query...]')
+	.parse();
 
 const tui = new Terminal({
 	maxLineLength: 80,
@@ -30,7 +39,8 @@ const agent = new Agent({
 });
 
 const load = async () => {
-	tui.print(chalk.green(title.trim()));
+	const titleWithVersion = title.trim().replace('$VER$', version);
+	tui.print(chalk.green(titleWithVersion));
 	tui.print();
 	try {
 		agent.on('download', (pct) => {
@@ -61,7 +71,7 @@ const load = async () => {
 	}
 };
 
-const loop = async (initialPrompt?: string) => {
+const loop = async (initialPrompt?: string, runOnce?: boolean) => {
 	while (true) {
 		const prompt = await (async () => {
 			if (initialPrompt) {
@@ -98,6 +108,9 @@ const loop = async (initialPrompt?: string) => {
 					stream,
 				}),
 			]);
+			if (runOnce) {
+				return;
+			}
 		} catch (err) {
 			tui.stopSpinner();
 			if (err instanceof AgentAbort) {
@@ -114,9 +127,18 @@ const loop = async (initialPrompt?: string) => {
 	}
 };
 
-if (resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
+const query = args.args.join(' ').trim();
+const queryIsDefined = query.length > 0;
+if (process.stdin.isTTY) {
 	load().then(() => {
-		const initialPrompt = 'Hello!';
-		loop(initialPrompt);
+		const initialPrompt = queryIsDefined ? query : 'Hello!';
+		const runOnce = queryIsDefined;
+		loop(initialPrompt, runOnce);
+	});
+} else {
+	load().then(() => tui.drain()).then((piped) => {
+		const initialPrompt = queryIsDefined ? `${query}\n${piped}` : piped;
+		const runOnce = true;
+		loop(initialPrompt, runOnce);
 	});
 }
