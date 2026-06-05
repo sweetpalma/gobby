@@ -8,9 +8,9 @@ import { Command } from 'commander';
 
 import * as functions from './functions';
 import { Agent, AgentAbort } from './agent';
+import { version } from '../package.json';
 import { Terminal } from './utils/terminal';
 import { Config } from './utils/config';
-import { version } from '../package.json';
 
 const title = `
 ┏┓        
@@ -62,7 +62,7 @@ const load = async () => {
 		});
 		await agent.load();
 	} catch (err) {
-		tui.print(`${chalk.red('Error')}: ${err instanceof Error ? err.message : err}`);
+		tui.print(formatError(err));
 		process.exit(-1);
 	} finally {
 		agent.removeAllListeners();
@@ -115,14 +115,24 @@ const loop = async (initialPrompt?: string, runOnce?: boolean) => {
 				tui.print(chalk.dim('[interrupted]'));
 				continue;
 			} else {
-				const msg = `${chalk.red('Error')}: ${err instanceof Error ? err.message : err}`;
-				tui.print(chalk.green('└ ') + msg);
+				tui.print(chalk.green('└ ') + formatError(err));
 			}
 		} finally {
 			tui.off('interrupt', interruptHandler);
 			tui.print();
 		}
 	}
+};
+
+const formatError = (err: unknown) => {
+	if (!(err instanceof Error)) {
+		return `${chalk.red('Error')}: ${err}`;
+	}
+	if (!err.stack) {
+		return `${chalk.red(err.name)}: ${err.message}`;
+	}
+	const prettyStack = err.stack.replace(err.name, chalk.red(err.name));
+	return prettyStack;
 };
 
 const query = args.args.join(' ').trim();
