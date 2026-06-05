@@ -2,7 +2,7 @@ import { Agent } from '../agent';
 
 export const memoryRemember = Agent.function({
 	description:
-		'Memorize an important fact about the user for future conversations. Use this when the user shares personal details, preferences, or anything worth remembering long-term. The fact should be a short, self-contained sentence.',
+		'Memorize an IMPORTANT fact about the user for future conversations. Use this when the user shares personal details, preferences, or anything worth remembering long-term. The fact should be a short, self-contained sentence.',
 	params: {
 		type: 'object',
 		required: ['fact'],
@@ -50,7 +50,12 @@ export const memoryForget = Agent.function({
 	},
 	handler: async ({ query }, agent: Agent) => {
 		try {
-			agent.memory.remove(query);
+			const forgotten = agent.memory.remove(query);
+			if (!forgotten) {
+				return {
+					error: 'Failed to forget: Search is likely failed.',
+				};
+			}
 			await agent.memory.save();
 			return {
 				result: 'Forgotten.',
