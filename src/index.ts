@@ -1,6 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { readdirSync, statSync } from 'node:fs';
+import readline from 'node:readline/promises';
+import { stdin as input, stdout as output } from 'node:process';
 import { getLlama, LlamaChatSession, defineChatSessionFunction } from 'node-llama-cpp';
 import { downloadModel } from './utils/download.js';
 
@@ -58,18 +60,33 @@ try {
     },
   });
 
-  // 4. Run inference prompting the model to use the tool
-  const prompt = 'Please check my local models folder and tell me which model files are downloaded.';
-  console.log(`\nUser: ${prompt}`);
-  process.stdout.write('Model: ');
+  // 4. Start interactive chat loop
+  console.log('\nChat session started. Type "exit" or "quit" to end the session.');
+  const rl = readline.createInterface({ input, output });
 
-  await session.prompt(prompt, {
-    functions: { listDownloadedModels },
-    onTextChunk: (chunk) => {
-      process.stdout.write(chunk);
-    },
-  });
-  console.log('\n');
+  try {
+    while (true) {
+      const promptText = await rl.question('\nUser: ');
+      const cleanPrompt = promptText.trim();
+      if (!cleanPrompt) continue;
+
+      if (cleanPrompt.toLowerCase() === 'exit' || cleanPrompt.toLowerCase() === 'quit') {
+        console.log('Goodbye!');
+        break;
+      }
+
+      process.stdout.write('Model: ');
+      await session.prompt(cleanPrompt, {
+        functions: { listDownloadedModels },
+        onTextChunk: (chunk) => {
+          process.stdout.write(chunk);
+        },
+      });
+      console.log();
+    }
+  } finally {
+    rl.close();
+  }
 
 } catch (error) {
   console.error('An error occurred:', error);
