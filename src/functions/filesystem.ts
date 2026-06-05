@@ -14,15 +14,9 @@ export const filesystemCurrentWorkingDirectory = Agent.function({
 		properties: {},
 	},
 	handler: async () => {
-		try {
-			return {
-				cwd: process.cwd(),
-			};
-		} catch (err) {
-			return {
-				error: 'Failed to get current working directory',
-			};
-		}
+		return {
+			cwd: process.cwd(),
+		};
 	},
 });
 
