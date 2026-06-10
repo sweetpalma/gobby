@@ -125,6 +125,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 		await this.config.save();
 		await this.memory.load();
 		this.memory.lengthLimit = this.config.get('memorySize');
+		this.emit('init');
 		const path = await downloadModel({
 			repo: this.config.get('modelRepo'),
 			path: this.config.get('modelPath'),

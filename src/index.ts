@@ -13,10 +13,9 @@ import { Terminal } from './utils/terminal';
 import { Config } from './utils/config';
 
 const title = `
-┏┓        
-┃┓┏┓┣┓┣┓┓┏
-┗┛┗┛┗┛┗┛┗┫
-v$VER$   ┛
+${chalk.green(' ▄▄ ▄██████▄ ▄▄')}   ${chalk.whiteBright('Gobby v$VERSION$')}
+${chalk.green('  ▀███ ██ ███▀ ')}   ${chalk.dim('Brain : $BRAIN$')}
+${chalk.green('    ▀██████▀   ')}   ${chalk.dim('Memos : $MEMOS$')}
 `;
 
 const args = new Command()
@@ -37,9 +36,6 @@ const agent = new Agent({
 });
 
 const load = async () => {
-	const titleWithVersion = title.trim().replace('$VER$', version);
-	tui.print(chalk.green(titleWithVersion));
-	tui.print();
 	try {
 		agent.on('download', (pct) => {
 			tui.print('Brain missing!');
@@ -51,7 +47,15 @@ const load = async () => {
 		});
 		agent.on('downloadComplete', () => {
 			tui.stopProgress();
-			tui.print(chalk.gray('Download complete.'));
+			tui.print(chalk.gray('Installation complete.'));
+			tui.print();
+		});
+		agent.on('init', () => {
+			const infoTitle = title
+				.replace('$BRAIN$', agent.config.get('modelRepo'))
+				.replace('$MEMOS$', `${agent.memory.length}/${agent.memory.lengthLimit}`)
+				.replace('$VERSION$', version);
+			tui.print(infoTitle);
 			tui.print();
 		});
 		agent.on('load', () => {

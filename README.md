@@ -1,5 +1,11 @@
 # Gobby
 
+```
+ ▄▄ ▄██████▄ ▄▄   Gobby Agent
+  ▀███ ██ ███▀    Brain : unsloth/Qwen3.5-4B-GGUF
+    ▀██████▀      Memos : 0/4096
+```
+
 A mischievous gremlin agent that lives in your terminal. Runs entirely on your machine -- no cloud, no API keys, no sending your secrets to the hoomans in the sky.
 
 ## How does it work?
