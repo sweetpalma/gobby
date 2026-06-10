@@ -57,9 +57,7 @@ export class Terminal extends EventEmitter<TerminalEvents> {
 		this.progress = new SingleBar(
 			{
 				stream: this.io.output,
-				format: '{bar} | {percentage}% | {eta_formatted}',
-				etaBuffer: 250,
-				fps: 10,
+				format: '{bar} | {percentage}%',
 				clearOnComplete: true,
 				hideCursor: true,
 			},
