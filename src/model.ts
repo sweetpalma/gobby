@@ -4,8 +4,10 @@ import {
 	getLlama,
 	defineChatSessionFunction,
 	LlamaChatSession,
+	LlamaLogLevel,
 	GbnfJsonSchema,
 	GbnfJsonSchemaToType,
+	ChatHistoryItem,
 } from 'node-llama-cpp';
 
 /**
@@ -75,6 +77,7 @@ export class ModelAbort extends Error {
  */
 export class Model {
 	private loadedSession?: LlamaChatSession;
+	private sessionHistory?: Array<ChatHistoryItem>;
 	private sessionMutex = new Mutex();
 
 	constructor(private opts: ModelOptions) {
@@ -137,11 +140,14 @@ export class Model {
 
 	/**
 	 * Loads model into the memory.
+	 * @remarks Disposed model retains chat history, so it could be resumed after calling the `load` method.
 	 */
 	public async load() {
 		await this.sessionMutex.acquire();
 		try {
-			const llama = await getLlama();
+			const llama = await getLlama({
+				logLevel: LlamaLogLevel.error,
+			});
 			const model = await llama.loadModel({
 				modelPath: this.opts.path,
 			});
@@ -153,6 +159,9 @@ export class Model {
 				contextSequence: context.getSequence(),
 				systemPrompt: this.opts.systemPrompt,
 			});
+			if (this.sessionHistory) {
+				this.loadedSession.setChatHistory(this.sessionHistory);
+			}
 		} finally {
 			this.sessionMutex.release();
 		}
@@ -169,7 +178,9 @@ export class Model {
 			}
 			// Dependant objects are also disposed:
 			// https://node-llama-cpp.withcat.ai/guide/objects-lifecycle#llama-instances
+			this.sessionHistory = this.session.getChatHistory();
 			await this.loadedSession.model.llama.dispose();
+			this.loadedSession = undefined;
 		} finally {
 			this.sessionMutex.release();
 		}
@@ -239,8 +250,8 @@ export class Model {
 		try {
 			return await Promise.race([waitForAbort(), runInference()]);
 		} finally {
-			this.sessionMutex.release();
 			prompt.stream?.end();
+			this.sessionMutex.release();
 		}
 	}
 }
