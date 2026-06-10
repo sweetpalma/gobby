@@ -11,6 +11,7 @@ export const configRead = Agent.function({
 			return {
 				modelRepo: agent.config.get('modelRepo'),
 				modelPath: agent.config.get('modelPath'),
+				idleTimeout: agent.config.get('idleTimeout'),
 				contextSize: agent.config.get('contextSize'),
 				memorySize: agent.config.get('memorySize'),
 			};
@@ -35,6 +36,10 @@ export const configWrite = Agent.function({
 				type: 'number',
 				description: 'The maximum size of persistent memory in characters (e.g. 4096).',
 			},
+			idleTimeout: {
+				type: 'number',
+				description: 'Seconds of inactivity before the model is unloaded from memory to save resources. Set to 0 to disable (e.g. 300).',
+			},
 		},
 	},
 	handler: async (params, agent: Agent) => {
@@ -44,6 +49,9 @@ export const configWrite = Agent.function({
 			}
 			if (params.memorySize !== undefined) {
 				agent.config.set('memorySize', params.memorySize);
+			}
+			if (params.idleTimeout !== undefined) {
+				agent.config.set('idleTimeout', params.idleTimeout);
 			}
 			await agent.config.save();
 			return {

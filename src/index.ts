@@ -98,7 +98,11 @@ const loop = async (initialPrompt?: string, runOnce?: boolean) => {
 		try {
 			tui.once('interrupt', interruptHandler);
 			tui.print(chalk.green('◆ Gobby'));
-			tui.startSpinner('Thinking...');
+			if (agent.loaded) {
+				tui.startSpinner('Thinking...');
+			} else {
+				tui.startSpinner('Waking up...');
+			}
 			await Promise.all([
 				tui.stream(stream, { prefix: chalk.green('└ ') }),
 				agent.prompt({

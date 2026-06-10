@@ -41,6 +41,8 @@ export interface AgentEvents {
 	downloadComplete: [];
 	load: [];
 	loadComplete: [];
+	idle: [];
+	idleReload: [];
 	prompt: [ModelPrompt];
 	promptComplete: [ModelPrompt, ModelResponse];
 }
@@ -56,6 +58,7 @@ export const AgentAbort = ModelAbort;
 export class Agent extends EventEmitter<AgentEvents> {
 	private functions?: Record<string, AgentFunction>;
 	private loadedModel?: Model;
+	private idleTimer?: ReturnType<typeof setTimeout>;
 
 	constructor({ config, functions }: AgentOptions) {
 		super();
@@ -88,7 +91,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 * Agent loaded model status.
 	 */
 	public get loaded() {
-		return !!this.loadedModel;
+		return !!this.loadedModel?.loaded;
 	}
 
 	/**
@@ -139,12 +142,14 @@ export class Agent extends EventEmitter<AgentEvents> {
 		});
 		await this.loadedModel.load();
 		this.emit('loadComplete');
+		this.resetIdleTimer();
 	}
 
 	/**
 	 * Disposes the agent model.
 	 */
 	public async dispose() {
+		this.clearIdleTimer();
 		if (this.loadedModel) {
 			await this.loadedModel.dispose();
 			this.loadedModel = undefined;
@@ -157,11 +162,20 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 * @returns Prompt result.
 	 */
 	public async prompt(prompt: ModelPrompt) {
-		this.emit('prompt', prompt);
-		this.model.systemPrompt = this.systemPrompt;
-		const response = await this.model.prompt(prompt);
-		this.emit('promptComplete', prompt, response);
-		return response;
+		this.clearIdleTimer();
+		try {
+			if (this.loadedModel && !this.loadedModel.loaded) {
+				this.emit('idleReload');
+				await this.loadedModel.load();
+			}
+			this.emit('prompt', prompt);
+			this.model.systemPrompt = this.systemPrompt;
+			const response = await this.model.prompt(prompt);
+			this.emit('promptComplete', prompt, response);
+			return response;
+		} finally {
+			this.resetIdleTimer();
+		}
 	}
 
 	/**
@@ -175,5 +189,40 @@ export class Agent extends EventEmitter<AgentEvents> {
 				handler: (params) => fn.handler(params, this),
 			});
 		});
+	}
+
+	/**
+	 * Resets the idle timer. When it fires, the model is disposed to free memory.
+	 * @private
+	 */
+	private resetIdleTimer() {
+		this.clearIdleTimer();
+		const millisecondTimeout = this.config.get('idleTimeout') * 1000;
+		if (millisecondTimeout <= 0) {
+			return;
+		}
+		this.idleTimer = setTimeout(async () => {
+			if (this.loadedModel?.loaded) {
+				try {
+					await this.loadedModel.dispose();
+					this.emit('idle');
+				} catch {
+					// Nothing ever happens, really.
+					// chud.jpg
+				}
+			}
+		}, millisecondTimeout);
+		this.idleTimer.unref();
+	}
+
+	/**
+	 * Clears the idle timer.
+	 * @private
+	 */
+	private clearIdleTimer() {
+		if (this.idleTimer) {
+			clearTimeout(this.idleTimer);
+			this.idleTimer = undefined;
+		}
 	}
 }
