@@ -187,3 +187,60 @@ export const filesystemDelete = Agent.function({
 		}
 	},
 });
+
+export const filesystemPatch = Agent.function({
+	description:
+		'Surgically edit a file by finding an exact string and replacing it with new content. Prefer this over filesystemWrite when making targeted changes to an existing file. Only paths inside the current working directory are allowed.',
+	params: {
+		type: 'object',
+		required: ['path', 'search', 'replace'],
+		properties: {
+			path: {
+				type: 'string',
+				description:
+					'The path of the file to patch (relative to the current working directory or absolute). Must be inside the current working directory.',
+			},
+			search: {
+				type: 'string',
+				description:
+					'The exact string to search for in the file. Must match the file contents character-for-character, including whitespace and indentation.',
+			},
+			replace: {
+				type: 'string',
+				description: 'The string to replace the matched content with.',
+			},
+		},
+	},
+	handler: async ({ path, search, replace }: { path: string; search: string; replace: string }) => {
+		try {
+			const resolvedPath = resolve(path);
+			if (!isInsideCwd(resolvedPath)) {
+				return {
+					error: `Access denied: "${path}" is outside the current working directory. You can only patch files within: ${process.cwd()}`,
+				};
+			}
+			const original = await readFile(resolvedPath, 'utf-8');
+			if (!original.includes(search)) {
+				return {
+					error: `Patch failed: the search string was not found in "${path}". Make sure it matches the file contents exactly, including whitespace and indentation.`,
+				};
+			}
+			const occurrences = original.split(search).length - 1;
+			if (occurrences > 1) {
+				return {
+					error: `Patch failed: the search string appears ${occurrences} times in "${path}". Provide a more specific search string that matches only one location.`,
+				};
+			}
+			const patched = original.replace(search, replace);
+			await writeFile(resolvedPath, patched, 'utf-8');
+			return {
+				path: resolvedPath,
+				bytesWritten: Buffer.byteLength(patched, 'utf-8'),
+			};
+		} catch (err) {
+			return {
+				error: `Failed to patch file: ${path}`,
+			};
+		}
+	},
+});
