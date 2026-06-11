@@ -1,3 +1,4 @@
+import glob from 'fast-glob';
 import { join, resolve, relative, dirname, isAbsolute } from 'node:path';
 import { readFile, writeFile, mkdir, readdir, stat, rm } from 'node:fs/promises';
 import { Agent } from '../agent';
@@ -33,7 +34,7 @@ export const filesystemList = Agent.function({
 			},
 		},
 	},
-	handler: async ({ path }: { path: string }) => {
+	handler: async ({ path }) => {
 		try {
 			const resolvedPath = resolve(path);
 			if (!isInsideCwd(resolvedPath)) {
@@ -87,7 +88,7 @@ export const filesystemRead = Agent.function({
 			},
 		},
 	},
-	handler: async ({ path }: { path: string }) => {
+	handler: async ({ path }) => {
 		try {
 			const resolvedPath = resolve(path);
 			if (!isInsideCwd(resolvedPath)) {
@@ -126,7 +127,7 @@ export const filesystemWrite = Agent.function({
 			},
 		},
 	},
-	handler: async ({ path, content }: { path: string; content: string }) => {
+	handler: async ({ path, content }) => {
 		try {
 			const resolvedPath = resolve(path);
 			if (!isInsideCwd(resolvedPath)) {
@@ -162,7 +163,7 @@ export const filesystemDelete = Agent.function({
 			},
 		},
 	},
-	handler: async ({ path }: { path: string }) => {
+	handler: async ({ path }) => {
 		try {
 			const resolvedPath = resolve(path);
 			if (!isInsideCwd(resolvedPath)) {
@@ -211,7 +212,7 @@ export const filesystemPatch = Agent.function({
 			},
 		},
 	},
-	handler: async ({ path, search, replace }: { path: string; search: string; replace: string }) => {
+	handler: async ({ path, search, replace }) => {
 		try {
 			const resolvedPath = resolve(path);
 			if (!isInsideCwd(resolvedPath)) {
@@ -240,6 +241,124 @@ export const filesystemPatch = Agent.function({
 		} catch (err) {
 			return {
 				error: `Failed to patch file: ${path}`,
+			};
+		}
+	},
+});
+
+export const filesystemFind = Agent.function({
+	description:
+		'Find files and directories matching a glob pattern within the current working directory. Use this to locate files before reading or patching them.',
+	params: {
+		type: 'object',
+		required: ['pattern'],
+		properties: {
+			pattern: {
+				type: 'string',
+				description:
+					'Glob pattern to match (e.g. "**/*.ts", "src/**", "*.json"). Always scoped to the current working directory.',
+			},
+			limit: {
+				type: 'number',
+				description:
+					'Search result limit. Equals to 100 by default.',
+			},
+		},
+	},
+	handler: async ({ pattern, limit }) => {
+		try {
+			const searchLimit = limit ?? 100;
+			const files = await glob(pattern, {
+				cwd: process.cwd(),
+				dot: false,
+				onlyFiles: false,
+				ignore: ['node_modules/**', '.git/**', 'dist/**'],
+			});
+			return {
+				pattern,
+				files: files.slice(0, searchLimit),
+				total: files.length,
+				truncated: files.length > searchLimit,
+			};
+		} catch (err) {
+			return {
+				error: `Failed to find files: ${err instanceof Error ? err.message : err}`,
+			};
+		}
+	},
+});
+
+export const filesystemGrep = Agent.function({
+	description:
+		'Search file contents for a text string across the current working directory. Returns matching lines with their file path and line number. Use this instead of reading multiple files when looking for a specific symbol, value, or pattern.',
+	params: {
+		type: 'object',
+		required: ['query'],
+		properties: {
+			query: {
+				type: 'string',
+				description: 'The text string to search for inside file contents.',
+			},
+			pattern: {
+				type: 'string',
+				description:
+					'Optional glob pattern to limit which files are searched (e.g. "**/*.ts"). Defaults to all files.',
+			},
+			caseSensitive: {
+				type: 'boolean',
+				description: 'Whether the match is case-sensitive. Enabled by default.',
+			},
+			limit: {
+				type: 'number',
+				description:
+					'Search result limit. Equals to 50 by default.',
+			},
+		},
+	},
+	handler: async ({ query, pattern, caseSensitive, limit }) => {
+		try {
+			const matchLimit = limit ?? 50;
+			const files = await glob(pattern ?? '**/*', {
+				cwd: process.cwd(),
+				dot: false,
+				onlyFiles: true,
+				ignore: ['node_modules/**', '.git/**', 'dist/**'],
+			});
+			const searchStr = caseSensitive ? query : query.toLowerCase();
+			const matches: Array<{ file: string; line: number; content: string }> = [];
+			for (const file of files) {
+				if (matches.length >= matchLimit) {
+					break;
+				}
+				try {
+					const content = await readFile(join(process.cwd(), file), 'utf-8');
+					const lines = content.split('\n');
+					for (let i = 0; i < lines.length; i++) {
+						if (matches.length >= matchLimit) {
+							break;
+						}
+						const lineStr = caseSensitive ? lines[i] : lines[i].toLowerCase();
+						if (lineStr.includes(searchStr)) {
+							matches.push({
+								file,
+								line: i + 1,
+								content: lines[i].trim(),
+							});
+						}
+					}
+				} catch {
+					// Skip unreadable files (binary, permission errors, etc.)
+				}
+			}
+			return {
+				query,
+				matches,
+				total: matches.length,
+				truncated: matches.length >= matchLimit,
+			};
+		} catch (err) {
+			return {
+				error: `Failed to search files: ${err instanceof Error ? err.message : err}`,
 			};
 		}
 	},
