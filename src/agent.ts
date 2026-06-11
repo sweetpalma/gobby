@@ -114,8 +114,8 @@ export class Agent extends EventEmitter<AgentEvents> {
 		if (this.memory.length === 0) {
 			return SYSTEM_PROMPT;
 		}
-		const memoryPrompt = `\nThings you remember:\n${this.memory.format()}`;
-		return SYSTEM_PROMPT + memoryPrompt;
+		const memory = '\nYou remember the following:\n' + this.memory.format();
+		return (SYSTEM_PROMPT + memory).trim();
 	}
 
 	/**
