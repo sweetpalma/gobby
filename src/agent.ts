@@ -39,6 +39,7 @@ export interface AgentEvents {
 	download: [number];
 	downloadProgress: [number];
 	downloadComplete: [];
+	init: [];
 	load: [];
 	loadComplete: [];
 	idle: [];
