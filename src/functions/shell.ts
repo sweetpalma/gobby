@@ -37,7 +37,9 @@ const BLOCKLIST = [
 ];
 
 const isAllowlisted = (command: string) => {
-	return ALLOWLIST.some((prefix) => command === prefix || command.startsWith(prefix + ' '));
+	return ALLOWLIST.some(
+		(prefix) => command === prefix || command.startsWith(prefix + ' '),
+	);
 };
 
 const isBlocklisted = (command: string) => {
@@ -58,8 +60,7 @@ export const shellExecute = Agent.function({
 			},
 			timeout: {
 				type: 'number',
-				description:
-					'Maximum execution time in seconds. Defaults to 30.',
+				description: 'Maximum execution time in seconds. Defaults to 30.',
 			},
 		},
 	},
@@ -109,8 +110,12 @@ export const shellExecute = Agent.function({
 				);
 			});
 			return {
-				stdout: result.stdout.slice(0, maxLength) + (result.stdout.length > maxLength ? '\n...(truncated)' : ''),
-				stderr: result.stderr.slice(0, maxLength) + (result.stderr.length > maxLength ? '\n...(truncated)' : ''),
+				stdout:
+					result.stdout.slice(0, maxLength) +
+					(result.stdout.length > maxLength ? '\n...(truncated)' : ''),
+				stderr:
+					result.stderr.slice(0, maxLength) +
+					(result.stderr.length > maxLength ? '\n...(truncated)' : ''),
 				exitCode: result.exitCode,
 				...(result.timedOut && { timedOut: true }),
 			};

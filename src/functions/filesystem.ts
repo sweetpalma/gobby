@@ -25,7 +25,8 @@ export const filesystemCurrentWorkingDirectory = Agent.function({
 });
 
 export const filesystemList = Agent.function({
-	description: 'List all files and directories in a specified folder path. Only paths inside the current working directory are allowed.',
+	description:
+		'List all files and directories in a specified folder path. Only paths inside the current working directory are allowed.',
 	params: {
 		type: 'object',
 		required: ['path'],
@@ -79,7 +80,8 @@ export const filesystemList = Agent.function({
 });
 
 export const filesystemRead = Agent.function({
-	description: 'Read the contents of a file at the specified path (as UTF-8 text). Only paths inside the current working directory are allowed.',
+	description:
+		'Read the contents of a file at the specified path (as UTF-8 text). Only paths inside the current working directory are allowed.',
 	params: {
 		type: 'object',
 		required: ['path'],
@@ -223,7 +225,7 @@ export const filesystemPatch = Agent.function({
 					error: `Access denied: "${path}" is outside the current working directory. You can only patch files within: ${process.cwd()}`,
 				};
 			}
-			const contents = await readFile(resolvedPath, 'utf-8')
+			const contents = await readFile(resolvedPath, 'utf-8');
 			const dmp = new DiffMatchPatch();
 			const patches = dmp.patch_make(search, replace);
 			const [patched, results] = dmp.patch_apply(patches, contents);
@@ -262,8 +264,7 @@ export const filesystemFind = Agent.function({
 			},
 			limit: {
 				type: 'number',
-				description:
-					'Search result limit. Equals to 100 by default.',
+				description: 'Search result limit. Equals to 100 by default.',
 			},
 		},
 	},
@@ -312,8 +313,7 @@ export const filesystemGrep = Agent.function({
 			},
 			limit: {
 				type: 'number',
-				description:
-					'Search result limit. Equals to 50 by default.',
+				description: 'Search result limit. Equals to 50 by default.',
 			},
 		},
 	},

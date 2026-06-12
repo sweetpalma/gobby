@@ -17,7 +17,9 @@ export const httpFetch = Agent.function({
 		try {
 			const response = await fetch(url);
 			if (!response.ok) {
-				return { error: `Failed to fetch URL: HTTP ${response.status} ${response.statusText}` };
+				return {
+					error: `Failed to fetch URL: HTTP ${response.status} ${response.statusText}`,
+				};
 			}
 			let content = await response.text();
 			const maxLength = 8000;
@@ -58,7 +60,9 @@ export const httpRead = Agent.function({
 				},
 			});
 			if (!response.ok) {
-				return { error: `Failed to read URL: HTTP ${response.status} ${response.statusText}` };
+				return {
+					error: `Failed to read URL: HTTP ${response.status} ${response.statusText}`,
+				};
 			}
 			let content = await response.text();
 			const maxLength = 8000;

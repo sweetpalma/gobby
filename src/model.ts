@@ -134,7 +134,7 @@ export class Model {
 					...item,
 					text: systemPrompt ?? '',
 				};
-			})
+			}),
 		);
 	}
 

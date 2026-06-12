@@ -63,13 +63,16 @@ export class Terminal extends EventEmitter<TerminalEvents> {
 			},
 			Presets.rect,
 		);
-		process.on('SIGINT', debounce(() => {
-			if (this.listenerCount('interrupt')) {
-				this.emit('interrupt');
-			} else {
-				process.exit(0);
-			}
-		}, 100));
+		process.on(
+			'SIGINT',
+			debounce(() => {
+				if (this.listenerCount('interrupt')) {
+					this.emit('interrupt');
+				} else {
+					process.exit(0);
+				}
+			}, 100),
+		);
 	}
 
 	/**

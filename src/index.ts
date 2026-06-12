@@ -18,11 +18,7 @@ ${chalk.green('  ▀███ ██ ███▀ ')}   ${chalk.dim('Brain : $BR
 ${chalk.green('    ▀██████▀   ')}   ${chalk.dim('Memos : $MEMOS$')}
 `;
 
-const args = new Command()
-	.name('gobby')
-	.version(version)
-	.argument('[query...]')
-	.parse();
+const args = new Command().name('gobby').version(version).argument('[query...]').parse();
 
 const tui = new Terminal({
 	maxLineLength: 80,
@@ -78,7 +74,9 @@ const loop = async (initialPrompt?: string, runOnce?: boolean) => {
 		try {
 			tui.stopSpinner();
 			tui.print(chalk.dim(`$ ${message}`));
-			const answer = (await tui.prompt({ prefix: chalk.dim('  Confirm (Y/N)? ') }))?.trim();
+			const answer = (
+				await tui.prompt({ prefix: chalk.dim('  Confirm (Y/N)? ') })
+			)?.trim();
 			const isApproved = answer === 'yes' || answer === 'y' || answer === '';
 			resolve(isApproved);
 		} finally {
@@ -164,9 +162,11 @@ if (process.stdin.isTTY) {
 		loop(initialPrompt, runOnce);
 	});
 } else {
-	load().then(() => tui.drain()).then((piped) => {
-		const initialPrompt = queryIsDefined ? `${query}\n${piped}` : piped;
-		const runOnce = true;
-		loop(initialPrompt, runOnce);
-	});
+	load()
+		.then(() => tui.drain())
+		.then((piped) => {
+			const initialPrompt = queryIsDefined ? `${query}\n${piped}` : piped;
+			const runOnce = true;
+			loop(initialPrompt, runOnce);
+		});
 }

@@ -24,7 +24,8 @@ export const configRead = Agent.function({
 });
 
 export const configWrite = Agent.function({
-	description: 'Write or update the agent configuration options. Only provided options will be updated.',
+	description:
+		'Write or update the agent configuration options. Only provided options will be updated.',
 	params: {
 		type: 'object',
 		properties: {
@@ -38,7 +39,8 @@ export const configWrite = Agent.function({
 			},
 			idleTimeout: {
 				type: 'number',
-				description: 'Seconds of inactivity before the model is unloaded from memory to save resources. Set to 0 to disable (e.g. 300).',
+				description:
+					'Seconds of inactivity before the model is unloaded from memory to save resources. Set to 0 to disable (e.g. 300).',
 			},
 		},
 	},

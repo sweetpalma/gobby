@@ -201,12 +201,15 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 * @private
 	 */
 	private getFunctionsWithContext() {
-		return this.functions && mapValues(this.functions, (fn) => {
-			return Model.function({
-				...fn,
-				handler: (params) => fn.handler(params, this),
-			});
-		});
+		return (
+			this.functions &&
+			mapValues(this.functions, (fn) => {
+				return Model.function({
+					...fn,
+					handler: (params) => fn.handler(params, this),
+				});
+			})
+		);
 	}
 
 	/**
