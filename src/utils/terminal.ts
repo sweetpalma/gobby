@@ -148,10 +148,13 @@ export class Terminal extends EventEmitter<TerminalEvents> {
 	/**
 	 * Erases last line.
 	 */
-	public erase() {
-		this.write(ansi.eraseEndLine);
-		this.write(ansi.eraseStartLine);
-		this.write(ansi.cursorPrevLine);
+	public erase(lines: number = 1) {
+		for (let i = 0; i < lines; i++) {
+			this.write(ansi.eraseEndLine);
+			this.write(ansi.eraseStartLine);
+			this.write(ansi.cursorPrevLine);
+			this.write(ansi.eraseEndLine);
+		}
 	}
 
 	/**

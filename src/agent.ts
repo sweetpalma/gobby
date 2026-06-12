@@ -46,6 +46,7 @@ export interface AgentEvents {
 	idleReload: [];
 	prompt: [ModelPrompt];
 	promptComplete: [ModelPrompt, ModelResponse];
+	confirm: [string, (result: boolean) => void];
 }
 
 /**
@@ -178,6 +179,21 @@ export class Agent extends EventEmitter<AgentEvents> {
 		} finally {
 			this.resetIdleTimer();
 		}
+	}
+
+	/**
+	 * Requests user confirmation via the UI layer.
+	 * @remarks Auto-approves if no listener is registered.
+	 * @param message - The message to display to the user.
+	 * @returns True if the user confirmed, false otherwise.
+	 */
+	public async confirm(message: string) {
+		if (this.listenerCount('confirm') === 0) {
+			return true;
+		}
+		return new Promise<boolean>((resolve) => {
+			this.emit('confirm', message, resolve);
+		});
 	}
 
 	/**

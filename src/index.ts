@@ -74,6 +74,17 @@ const load = async () => {
 };
 
 const loop = async (initialPrompt?: string, runOnce?: boolean) => {
+	agent.on('confirm', async (message, resolve) => {
+		try {
+			tui.stopSpinner();
+			tui.print(chalk.dim(`$ ${message}`));
+			const answer = (await tui.prompt({ prefix: chalk.dim('  Confirm (Y/N)? ') }))?.trim();
+			const isApproved = answer === 'yes' || answer === 'y' || answer === '';
+			resolve(isApproved);
+		} finally {
+			tui.erase(2);
+		}
+	});
 	while (true) {
 		const prompt = await (async () => {
 			if (initialPrompt) {
