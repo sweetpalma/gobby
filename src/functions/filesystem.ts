@@ -1,4 +1,5 @@
 import glob from 'fast-glob';
+import { DiffMatchPatch } from 'diff-match-patch-ts';
 import { join, resolve, relative, dirname, isAbsolute } from 'node:path';
 import { createReadStream } from 'node:fs';
 import { readFile, writeFile, mkdir, readdir, stat, rm } from 'node:fs/promises';
@@ -193,7 +194,7 @@ export const filesystemDelete = Agent.function({
 
 export const filesystemPatch = Agent.function({
 	description:
-		'Surgically edit a file by finding an exact string and replacing it with new content. Prefer this over filesystemWrite when making targeted changes to an existing file. Only paths inside the current working directory are allowed.',
+		'Surgically edit a file by finding a string and replacing it with new content. Uses fuzzy matching, so the search string does not need to perfectly match whitespace and indentation. Only paths inside the current working directory are allowed.',
 	params: {
 		type: 'object',
 		required: ['path', 'search', 'replace'],
@@ -206,7 +207,7 @@ export const filesystemPatch = Agent.function({
 			search: {
 				type: 'string',
 				description:
-					'The exact string to search for in the file. Must match the file contents character-for-character, including whitespace and indentation.',
+					'The string to search for in the file. Should be a reasonably unique snippet of the existing code.',
 			},
 			replace: {
 				type: 'string',
@@ -222,19 +223,18 @@ export const filesystemPatch = Agent.function({
 					error: `Access denied: "${path}" is outside the current working directory. You can only patch files within: ${process.cwd()}`,
 				};
 			}
-			const original = await readFile(resolvedPath, 'utf-8');
-			if (!original.includes(search)) {
+			const contents = await readFile(resolvedPath, 'utf-8')
+			const dmp = new DiffMatchPatch();
+			const patches = dmp.patch_make(search, replace);
+			const [patched, results] = dmp.patch_apply(patches, contents);
+			const allApplied = results.every((result) => {
+				return result === true;
+			});
+			if (!allApplied || patches.length === 0) {
 				return {
-					error: `Patch failed: the search string was not found in "${path}". Make sure it matches the file contents exactly, including whitespace and indentation.`,
+					error: `Patch failed: Could not fuzzily match the search string in "${path}". Please ensure the search string is sufficiently unique and similar to the file contents.`,
 				};
 			}
-			const occurrences = original.split(search).length - 1;
-			if (occurrences > 1) {
-				return {
-					error: `Patch failed: the search string appears ${occurrences} times in "${path}". Provide a more specific search string that matches only one location.`,
-				};
-			}
-			const patched = original.replace(search, replace);
 			await writeFile(resolvedPath, patched, 'utf-8');
 			return {
 				path: resolvedPath,
