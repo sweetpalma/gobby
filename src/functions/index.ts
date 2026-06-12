@@ -3,3 +3,4 @@ export * from './time';
 export * from './config';
 export * from './memory';
 export * from './shell';
+export * from './http';
