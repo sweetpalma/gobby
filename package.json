@@ -1,48 +1,66 @@
 {
-  "name": "gobby",
-  "version": "0.1.0",
-  "type": "module",
-  "description": "Mischievous gremlin agent with goblin vibes.",
-  "author": "SweetPalma",
-  "license": "MIT",
-  "keywords": [
-    "agent",
-    "ai",
-    "llm"
-  ],
-  "bin": {
-    "gobby": "dist/index.js"
-  },
-  "scripts": {
-    "chat": "tsx src/index.ts",
-    "build": "npm run typecheck && npm run bundle",
-    "bundle": "esbuild src/index.ts  --outdir=dist --platform=node --packages=external --format=esm  --bundle",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@huggingface/hub": "^2.13.1",
-    "ansi-escapes": "^7.3.0",
-    "chalk": "^5.6.2",
-    "cli-progress": "^3.12.0",
-    "commander": "^15.0.0",
-    "diff-match-patch-ts": "^0.8.0",
-    "es-toolkit": "^1.47.0",
-    "fast-glob": "^3.3.3",
-    "is-online": "^12.0.2",
-    "node-llama-cpp": "^3.18.1",
-    "ora": "^9.4.0",
-    "string-width": "^8.2.1",
-    "terminal-size": "^4.0.1",
-    "yaml": "^2.9.0",
-    "zod": "^4.4.3"
-  },
-  "devDependencies": {
-    "@types/cli-progress": "^3.11.6",
-    "@types/node": "^25.9.1",
-    "esbuild": "^0.28.0",
-    "prettier": "^3.8.3",
-    "tsx": "^4.22.3",
-    "typescript": "^6.0.3"
-  }
+	"name": "gobby-agent",
+	"version": "0.1.0",
+	"type": "module",
+	"description": "Mischievous gremlin agent with goblin vibes.",
+	"author": "SweetPalma",
+	"license": "MIT",
+	"engines": {
+		"node": ">=20.0.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/sweetpalma/gobby.git"
+	},
+	"bugs": {
+		"url": "https://github.com/sweetpalma/gobby/issues"
+	},
+	"keywords": [
+		"agent",
+		"ai",
+		"llm",
+		"terminal",
+		"cli"
+	],
+	"main": "dist/index.js",
+	"files": [
+		"dist"
+	],
+	"bin": {
+		"gobby": "dist/index.js"
+	},
+	"scripts": {
+		"chat": "tsx src/index.ts",
+		"build": "npm run typecheck && npm run bundle",
+		"bundle": "esbuild src/index.ts  --outdir=dist --platform=node --packages=external --format=esm  --bundle",
+		"format-check": "prettier --check \"src/**/*.ts\"",
+		"format": "prettier --write \"src/**/*.ts\"",
+		"typecheck": "tsc --noEmit",
+		"prepare": "npm run build"
+	},
+	"dependencies": {
+		"@huggingface/hub": "^2.13.1",
+		"ansi-escapes": "^7.3.0",
+		"chalk": "^5.6.2",
+		"cli-progress": "^3.12.0",
+		"commander": "^15.0.0",
+		"diff-match-patch-ts": "^0.8.0",
+		"es-toolkit": "^1.47.0",
+		"fast-glob": "^3.3.3",
+		"is-online": "^12.0.2",
+		"node-llama-cpp": "^3.18.1",
+		"ora": "^9.4.0",
+		"string-width": "^8.2.1",
+		"terminal-size": "^4.0.1",
+		"yaml": "^2.9.0",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@types/cli-progress": "^3.11.6",
+		"@types/node": "^25.9.1",
+		"esbuild": "^0.28.0",
+		"prettier": "^3.8.3",
+		"tsx": "^4.22.3",
+		"typescript": "^6.0.3"
+	}
 }
