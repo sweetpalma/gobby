@@ -72,7 +72,7 @@ export const filesystemList = Agent.function({
 			};
 		} catch (err) {
 			return {
-				error: `Failed to list files in directory: ${path}`,
+				error: `Failed to list files in directory: ${err instanceof Error ? err.message : err}`,
 			};
 		}
 	},
@@ -106,7 +106,7 @@ export const filesystemRead = Agent.function({
 			};
 		} catch (err) {
 			return {
-				error: `Failed to read file: ${path}`,
+				error: `Failed to read file: ${err instanceof Error ? err.message : err}`,
 			};
 		}
 	},
@@ -146,7 +146,7 @@ export const filesystemWrite = Agent.function({
 			};
 		} catch (err) {
 			return {
-				error: `Failed to write file: ${path}`,
+				error: `Failed to write file: ${err instanceof Error ? err.message : err}`,
 			};
 		}
 	},
@@ -186,7 +186,7 @@ export const filesystemDelete = Agent.function({
 			};
 		} catch (err) {
 			return {
-				error: `Failed to delete: ${path}`,
+				error: `Failed to delete: ${err instanceof Error ? err.message : err}`,
 			};
 		}
 	},
@@ -242,7 +242,7 @@ export const filesystemPatch = Agent.function({
 			};
 		} catch (err) {
 			return {
-				error: `Failed to patch file: ${path}`,
+				error: `Failed to patch file: ${err instanceof Error ? err.message : err}`,
 			};
 		}
 	},
