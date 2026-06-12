@@ -89,9 +89,17 @@ export class Config {
 
 	/**
 	 * Sets config option.
+	 * @throws {Error} If the value fails schema validation.
 	 */
 	public set<K extends keyof ConfigSchema>(key: K, value: ConfigSchema[K]) {
-		this.params[key] = value;
+		const fieldSchema = ConfigSchema.shape[key];
+		const { data, error } = fieldSchema.safeParse(value);
+		if (!error) {
+			this.params[key] = data as ConfigSchema[K];
+		} else {
+			const msg = zod.prettifyError(error);
+			throw new Error(msg);
+		}
 	}
 
 	/**
