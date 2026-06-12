@@ -1,6 +1,8 @@
 import glob from 'fast-glob';
 import { join, resolve, relative, dirname, isAbsolute } from 'node:path';
+import { createReadStream } from 'node:fs';
 import { readFile, writeFile, mkdir, readdir, stat, rm } from 'node:fs/promises';
+import { createInterface } from 'node:readline';
 import { Agent } from '../agent';
 
 const isInsideCwd = (resolvedPath: string): boolean => {
@@ -306,7 +308,7 @@ export const filesystemGrep = Agent.function({
 			},
 			caseSensitive: {
 				type: 'boolean',
-				description: 'Whether the match is case-sensitive. Enabled by default.',
+				description: 'Whether the match is case-sensitive. Disabled by default.',
 			},
 			limit: {
 				type: 'number',
@@ -331,20 +333,27 @@ export const filesystemGrep = Agent.function({
 					break;
 				}
 				try {
-					const content = await readFile(join(process.cwd(), file), 'utf-8');
-					const lines = content.split('\n');
-					for (let i = 0; i < lines.length; i++) {
+					const stream = createReadStream(join(process.cwd(), file), 'utf-8');
+					const rl = createInterface({
+						input: stream,
+						crlfDelay: Infinity,
+					});
+					let lineNum = 1;
+					for await (const line of rl) {
 						if (matches.length >= matchLimit) {
+							rl.close();
+							stream.destroy();
 							break;
 						}
-						const lineStr = caseSensitive ? lines[i] : lines[i].toLowerCase();
+						const lineStr = caseSensitive ? line : line.toLowerCase();
 						if (lineStr.includes(searchStr)) {
 							matches.push({
 								file,
-								line: i + 1,
-								content: lines[i].trim(),
+								line: lineNum,
+								content: line.trim(),
 							});
 						}
+						lineNum = lineNum + 1;
 					}
 				} catch {
 					// Skip unreadable files (binary, permission errors, etc.)
