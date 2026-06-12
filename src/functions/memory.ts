@@ -19,7 +19,7 @@ export const memoryRemember = Agent.function({
 			const added = agent.memory.add(fact);
 			if (!added) {
 				return {
-					error: 'Memory is full. Forget something first.',
+					error: 'Failed to memorize: Memory is probably full.',
 				};
 			}
 			await agent.memory.save();
