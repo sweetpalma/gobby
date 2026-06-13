@@ -10,6 +10,7 @@ import zod from 'zod';
 export const ConfigSchema = zod.object({
 	modelRepo: zod.string(),
 	modelPath: zod.string(),
+	temperature: zod.number().min(0).max(1),
 	contextSize: zod.number().min(32768).max(262144),
 	memorySize: zod.number().min(512).max(8096),
 	idleTimeout: zod.number().min(0).max(3600),
@@ -28,6 +29,7 @@ export type ConfigSchema = zod.infer<typeof ConfigSchema>;
 export const CONFIG_DEFAULTS: ConfigSchema = {
 	modelRepo: 'unsloth/Qwen3.5-4B-GGUF',
 	modelPath: 'Qwen3.5-4B-Q4_K_M.gguf',
+	temperature: 0.25,
 	contextSize: 32768,
 	memorySize: 4096,
 	idleTimeout: 300,
