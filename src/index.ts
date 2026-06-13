@@ -18,7 +18,12 @@ ${chalk.green('  ▀███ ██ ███▀ ')}   ${chalk.dim('Brain : $BR
 ${chalk.green('    ▀██████▀   ')}   ${chalk.dim('Memos : $MEMOS$')}
 `;
 
-const args = new Command().name('gobby').version(version).argument('[query...]').parse();
+// prettier-ignore
+const args = new Command()
+	.name('gobby')
+	.version(version)
+	.argument('[query...]')
+	.parse();
 
 const tui = new Terminal({
 	maxLineLength: 80,
@@ -31,7 +36,7 @@ const agent = new Agent({
 	}),
 });
 
-const load = async () => {
+const load = async (showTitle?: boolean) => {
 	try {
 		agent.on('download', (pct) => {
 			tui.print('Brain missing!');
@@ -46,19 +51,21 @@ const load = async () => {
 			tui.print(chalk.gray('Installation complete.'));
 			tui.print();
 		});
-		agent.on('init', () => {
-			const infoTitle = title
-				.replace('$BRAIN$', agent.config.get('modelRepo'))
-				.replace('$MEMOS$', `${agent.memory.length}/${agent.memory.lengthLimit}`)
-				.replace('$VERSION$', version);
-			tui.print(infoTitle);
-			tui.print();
-		});
 		agent.on('load', () => {
 			tui.startSpinner('Warming up...');
 		});
 		agent.on('loadComplete', () => {
 			tui.stopSpinner();
+		});
+		agent.on('init', () => {
+			if (showTitle) {
+				const infoTitle = title
+					.replace('$BRAIN$', agent.config.get('modelRepo'))
+					.replace('$MEMOS$', `${agent.memory.length}/${agent.memory.lengthLimit}`)
+					.replace('$VERSION$', version);
+				tui.print(infoTitle);
+				tui.print();
+			}
 		});
 		await agent.load();
 	} catch (err) {
@@ -156,13 +163,15 @@ const formatError = (err: unknown) => {
 const query = args.args.join(' ').trim();
 const queryIsDefined = query.length > 0;
 if (process.stdin.isTTY) {
-	load().then(() => {
+	const showTitle = true;
+	load(showTitle).then(() => {
 		const initialPrompt = queryIsDefined ? query : 'Hello!';
 		const runOnce = queryIsDefined;
 		loop(initialPrompt, runOnce);
 	});
 } else {
-	load()
+	const showTitle = false;
+	load(showTitle)
 		.then(() => tui.drain())
 		.then((piped) => {
 			const initialPrompt = queryIsDefined ? `${query}\n${piped}` : piped;
