@@ -9,31 +9,58 @@
     ▀██████▀      Memos : 0/4096
 ```
 
-A mischievous gremlin agent that lives in your terminal. Runs entirely on your machine - no cloud, no API keys, no sending your secrets to the hoomans in the sky.
+Gobby is a mischievous gremlin agent that lives in your terminal. No clouds, no API keys, no sending your secrets to the hoomans in the sky - just you, your machine, and a tiny virtual creature who calls you "hooman."
 
 ## Features
 
-- **Completely Local:** Gobby runs entirely on your hardware - no data ever leaves your machine.
-- **Agentic Workflow:** Gobby is not just a chatbot - it can explore codebases, write code, run terminal commands, and browse the web autonomously to solve complex tasks.
-- **Batteries Included:** Comes with a robust set of tools out of the box - including file system access, shell execution and autonomous web browsing.
-- **Persistent Memory:** Gobby automatically remembers your preferences and important project facts across sessions.
-- **Highly Optimized:** Gobby is engineered for local performance - it runs a very tiny, but capable model, and unloads it during inactivity to save your RAM.
-- **Goblin Vibes:** Gobby calls you "hooman" (this is a feature, not a bug).
+### Zero Configuration
 
-## Getting Started
-
-You need **Node.js 20+** and a machine with at least **4GB of RAM** (Apple Silicon Macs run this beautifully).
+Install it. Run it. That's the whole setup.
 
 ```bash
 npm install -g gobby-agent
 gobby
 ```
 
-On the first launch, Gobby will scavenge Hugging Face for its brain. This takes a minute depending on your connection. After that, everything runs completely offline.
+On first launch, Gobby scavenges Hugging Face for its brain - a 4B parameter model that fits comfortably in ~4GB of RAM. After that, everything runs completely offline.
+
+No accounts. No tokens. No configuration wizard asking you twelve questions before you can say hello. It just works.
+
+### Completely Local
+
+Your conversations, your files, your code - none of it leaves your machine. Ever.
+
+Gobby runs inference directly on your hardware via `node-llama-cpp`. When you walk away, it unloads the model from memory to give your RAM back. When you come back, it picks up right where you left off - as if it never left. 
+
+No telemetry. No analytics. No "we take your privacy seriously" blog post that means the opposite. The network cable could be unplugged and Gobby would not even notice.
+
+And Apple Silicon runs this beautifully.
+
+### Batteries Included
+
+Gobby is not a chatbot. It's an agent with (tiny) hands. Out of the box, it can:
+
+- **Read and write:** List directories, read files, write new ones, delete what needs deleting. All scoped to your current working directory so it can't wander off.
+
+- **Search across your project:** Grep through file contents, find files by glob pattern. It always looks before it leaps.
+
+- **Run shell commands:** Safe commands like `git status`, `npm test`, and `ls` run automatically. Anything spicy requires your explicit confirmation. Anything truly unhinged (like nuking your hard drive) is hard-blocked.
+
+- **Browse web:** Fetch raw URLs or read web pages as clean Markdown. Documentation, APIs, Stack Overflow - it can go get what it needs, but *only* when you ask to.
+
+- **Remember things:**  Persistent memory across sessions. Tell it your name, your preferences, your project conventions. It writes them down and carries them forward.
+
+### Terminal Friendly
+
+Gobby plays nicely with Unix pipes. Feed it, ask a question, get a plain answer. For example, you can:
+
+```bash
+cat src/index.ts | gobby "explain this file"
+```
 
 ## Local Development
 
-Want to hack on Gobby's brain or add new tools?
+Want to hack on Gobby's brain or teach it new tricks?
 
 ```bash
 git clone https://github.com/sweetpalma/gobby.git
@@ -48,8 +75,10 @@ To build a standalone CLI bundle:
 npm run build
 ```
 
-## 📜 License
+Pull requests are always welcome!
 
-Gobby is open-source under the MIT license.
+## License
+
+Gobby is open-source under the MIT license. That means you can do whatever you want - with no complaints. You can even turn it into your own abuse goblin (please, don't do this).
 
 *Signed by Gobby, your mischievous gremlin assistant.*

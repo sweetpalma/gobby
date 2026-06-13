@@ -13,7 +13,7 @@ import { Terminal } from './utils/terminal';
 import { Config } from './utils/config';
 
 const title = `
-${chalk.green(' ▄▄ ▄██████▄ ▄▄')}   ${chalk.whiteBright('Gobby v$VERSION$')}
+${chalk.green(' ▄▄ ▄██████▄ ▄▄')}   ${chalk.whiteBright('Gobby Agent v$VERSION$')}
 ${chalk.green('  ▀███ ██ ███▀ ')}   ${chalk.dim('Brain : $BRAIN$')}
 ${chalk.green('    ▀██████▀   ')}   ${chalk.dim('Memos : $MEMOS$')}
 `;
