@@ -129,17 +129,14 @@ export class Model {
 		if (!this.loaded) {
 			return;
 		}
-		this.session.setChatHistory(
-			this.session.getChatHistory().map((item) => {
-				if (item.type !== 'system') {
-					return item;
-				}
-				return {
-					...item,
-					text: systemPrompt ?? '',
-				};
-			}),
-		);
+		const history = this.session.getChatHistory();
+		const systemPromptItem = history.find((item) => {
+			return item.type === 'system';
+		});
+		if (systemPromptItem) {
+			systemPromptItem.text = systemPrompt ?? '';
+			this.session.setChatHistory(history);
+		}
 	}
 
 	/**
