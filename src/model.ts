@@ -260,14 +260,18 @@ export class Model {
 	 * @param cachePath - Cache folder path.
 	 */
 	private async useStartupCache(cachePath: string) {
-		const promptHash = createHash('sha256')
-			.update(this.opts.systemPrompt ?? '')
-			.digest('hex');
+		const hashSource = {
+			systemPrompt: this.systemPrompt ?? null,
+			functions: this.opts.functions ?? null,
+		};
 		const hashPath = join(cachePath, 'hash.txt');
 		const dataPath = join(cachePath, 'data.bin');
-		const storedHash = await readFile(hashPath, 'utf-8').catch(() => null);
+		const savedHash = await readFile(hashPath, 'utf-8').catch(() => null);
+		const freshHash = createHash('sha256')
+			.update(JSON.stringify(hashSource))
+			.digest('hex');
 		try {
-			if (storedHash !== promptHash) {
+			if (savedHash !== freshHash) {
 				throw new Error('System prompt changed, rebuilding...');
 			}
 			await this.session.sequence.loadStateFromFile(dataPath, { acceptRisk: true });
@@ -277,7 +281,7 @@ export class Model {
 			await mkdir(cachePath, { recursive: true });
 			await this.session.preloadPrompt('', { functions: this.opts.functions });
 			await this.session.sequence.saveStateToFile(dataPath);
-			await writeFile(hashPath, promptHash);
+			await writeFile(hashPath, freshHash);
 		}
 	}
 }
