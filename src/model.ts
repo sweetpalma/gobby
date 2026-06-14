@@ -8,9 +8,9 @@ import {
 	defineChatSessionFunction,
 	LlamaChatSession,
 	LlamaLogLevel,
+	ChatHistoryItem,
 	GbnfJsonSchema,
 	GbnfJsonSchemaToType,
-	ChatHistoryItem,
 } from 'node-llama-cpp';
 
 /**
@@ -197,26 +197,11 @@ export class Model {
 	 * Prompts loaded model.
 	 */
 	public async prompt(prompt: ModelPrompt) {
-		// prettier-ignore
-		const waitForSignalAbort = () => new Promise<never>((_, reject) => {
-			const abort = () => {
-				prompt.stream?.end();
-				reject(new ModelAbort());
-			};
-			if (prompt.signal) {
-				if (!prompt.signal.aborted) {
-					prompt.signal.addEventListener('abort', abort, { once: true });
-				} else {
-					abort();
-				}
-			}
-		});
 		const infer = async (): Promise<ModelResponse> => {
-			const session = this.session;
-			const history = session.getChatHistory();
+			const history = this.session.getChatHistory();
 			try {
 				let buffer = '';
-				await session.prompt(prompt.text, {
+				await this.session.prompt(prompt.text, {
 					functions: this.opts.functions,
 					temperature: this.opts.temperature ?? 0.25,
 					signal: prompt.signal,
@@ -237,8 +222,8 @@ export class Model {
 				};
 			} catch (err) {
 				const message = err instanceof Error ? err.message : `${err}`;
-				session.setChatHistory([
-					...session.getChatHistory(),
+				this.session.setChatHistory([
+					...this.session.getChatHistory(),
 					{
 						type: 'system',
 						text: `An error occurred: ${message}`,
@@ -247,13 +232,22 @@ export class Model {
 				throw err;
 			} finally {
 				if (prompt.skipHistory) {
-					session.setChatHistory(history);
+					this.session.setChatHistory(history);
 				}
 			}
 		};
+		const waitForAbortSignal = async (): Promise<never> => {
+			if (prompt.signal?.aborted) {
+				throw new ModelAbort();
+			}
+			return new Promise((_, reject) => {
+				const abortHandler = () => reject(new ModelAbort());
+				prompt.signal?.addEventListener('abort', abortHandler, { once: true });
+			});
+		};
 		await this.sessionMutex.acquire();
 		try {
-			return await Promise.race([infer(), waitForSignalAbort()]);
+			return await Promise.race([infer(), waitForAbortSignal()]);
 		} finally {
 			prompt.stream?.end();
 			this.sessionMutex.release();
@@ -263,7 +257,7 @@ export class Model {
 	/**
 	 * Tries to load a startup cache or creates a new if it's corrupt or missing.
 	 * @remarks Implementing this method sped up the loading time by 5x on average.
-	 * @param cachePath - Cache folder path. 
+	 * @param cachePath - Cache folder path.
 	 */
 	private async useStartupCache(cachePath: string) {
 		const promptHash = createHash('sha256')
