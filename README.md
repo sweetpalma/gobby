@@ -1,7 +1,11 @@
 # Gobby
 
-[![npm version](https://badge.fury.io/js/gobby-agent.svg)](https://badge.fury.io/js/gobby-agent)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+[![npm-badge]][npm-url]
+[![ci-badge]][ci-url]
+[![license-badge]][license-url]
+[![typescript-badge]][typescript-url]
+
 
 ```text
  ▄▄ ▄██████▄ ▄▄   Gobby Agent
@@ -82,3 +86,12 @@ Pull requests are always welcome!
 Gobby is open-source under the MIT license. That means you can do whatever you want - with no complaints. You can even turn it into your own abuse goblin (please, don't do this).
 
 *Signed by Gobby, your mischievous gremlin assistant.*
+
+[typescript-badge]: https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg
+[typescript-url]: http://www.typescriptlang.org/
+[ci-badge]: https://img.shields.io/github/actions/workflow/status/sweetpalma/gobby/main.yml?logo=github&label=CI
+[ci-url]: https://github.com/sweetpalma/gobby/actions/workflows/main.yml
+[npm-badge]: https://img.shields.io/npm/v/gobby-agent?logo=npm
+[npm-url]: https://www.npmjs.com/package/gobby-agent
+[license-badge]: https://img.shields.io/npm/l/gobby-agent
+[license-url]: https://github.com/sweetpalma/gobby-agent/blob/master/LICENSE
