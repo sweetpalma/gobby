@@ -36,7 +36,7 @@
 		"format-check": "prettier --check \"src/**/*.ts\"",
 		"format": "prettier --write \"src/**/*.ts\"",
 		"typecheck": "tsc --noEmit",
-		"prepare": "npm run build"
+		"prepare": "husky"
 	},
 	"dependencies": {
 		"@huggingface/hub": "^2.13.1",
@@ -59,6 +59,7 @@
 		"@types/cli-progress": "^3.11.6",
 		"@types/node": "^25.9.1",
 		"esbuild": "^0.28.0",
+		"husky": "^9.1.7",
 		"prettier": "^3.8.3",
 		"tsx": "^4.22.3",
 		"typescript": "^6.0.3"
