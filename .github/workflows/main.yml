@@ -9,11 +9,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
       - name: Install dependencies
         run: npm ci
       - name: Run code style check
@@ -26,13 +26,28 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.event.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
       - name: Install dependencies
         run: npm ci
-      - name: Publish with Provenance
-        run: npm publish --provenance --access public
+      - name: Validate version
+        uses: geritol/match-tag-to-package-version@0.2.0
+        with:
+          TAG_PREFIX: v
+      - name: Create package
+        run: npm pack
+      - name: Save release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Package
+          path: ./*.tgz
+      - name: Attach release artifact
+        uses: softprops/action-gh-release@4634c16e79c963813287e889244c50009e7f0981
+        with:
+          files: ./*.tgz
+      - name: Publish to NPM (Provenance)
+        run: npm publish --provenance
