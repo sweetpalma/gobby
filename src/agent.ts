@@ -139,6 +139,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 		this.emit('load');
 		this.loadedModel = new Model({
 			path,
+			cachePath: this.config.cachePath,
 			systemPrompt: this.systemPrompt,
 			temperature: this.config.get('temperature'),
 			contextSize: this.config.get('contextSize'),

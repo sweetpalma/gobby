@@ -62,17 +62,24 @@ export class Config {
 	public readonly workspace: string;
 
 	/**
-	 * Workspace config path.
-	 */
-	public get configPath() {
-		return join(this.workspace, 'config.yml');
-	}
-
-	/**
 	 * Workspace models path.
 	 */
 	public get modelsPath() {
 		return join(this.workspace, 'models');
+	}
+
+	/**
+	 * Workspace cache path.
+	 */
+	public get cachePath() {
+		return join(this.workspace, 'cache');
+	}
+
+	/**
+	 * Workspace config path.
+	 */
+	public get configPath() {
+		return join(this.workspace, 'config.yml');
 	}
 
 	/**
