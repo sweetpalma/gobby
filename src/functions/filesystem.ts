@@ -91,14 +91,25 @@ export const filesystemRead = Agent.function({
 				description:
 					'The path of the file to read (relative to the current working directory or absolute).',
 			},
+			maxSize: {
+				type: 'number',
+				description: 'Maximum allowed read size. Defaults to 16384 bytes.',
+			},
 		},
 	},
-	handler: async ({ path }) => {
+	handler: async ({ path, maxSize }) => {
 		try {
 			const resolvedPath = resolve(path);
 			if (!isInsideCwd(resolvedPath)) {
 				return {
 					error: `Access denied: "${path}" is outside the current working directory. You can only access paths within: ${process.cwd()}`,
+				};
+			}
+			const stats = await stat(resolvedPath);
+			const maxAllowedSize = maxSize ?? 16384;
+			if (stats.size > maxAllowedSize) {
+				return {
+					error: `File is too large (${stats.size} bytes). Maximum allowed read size is ${maxAllowedSize} bytes. If you are looking for specific text, use the filesystemGrep tool instead.`,
 				};
 			}
 			const content = await readFile(resolvedPath, 'utf-8');
