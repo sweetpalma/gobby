@@ -206,78 +206,127 @@ export class Terminal extends EventEmitter<TerminalEvents> {
 			this.size.width - prefixWidth,
 		);
 		return new Promise<void>((resolve, reject) => {
-			let buffer = '';
-			let col = 0;
-			let row = 0;
+			const [boldOn, boldOff] = chalk.bold(' ').split(' ');
+			const [cyanOn, cyanOff] = chalk.cyan(' ').split(' ');
+			const state = {
+				buffer: '',
+				col: 0,
+				row: 0,
+				pendingAsterisk: false,
+				bold: false,
+				code: false,
+			};
 			const startLine = (newline: boolean) => {
 				if (newline) {
 					this.write('\n');
 				}
-				if (row >= 1) {
+				if (state.row >= 1) {
 					this.write(' '.repeat(prefixWidth));
 				} else {
 					this.stopSpinner();
 					this.stopProgress();
 					this.write(formatting.prefix ?? '');
 				}
-				row = row + 1;
-				col = 0;
+				state.row = state.row + 1;
+				state.col = 0;
 			};
 			const flush = () => {
-				if (buffer.length > 0) {
-					const bufferWidth = stringWidth(buffer);
-					if (col > 0 && col + bufferWidth > maxLineLength) {
+				if (state.buffer.length > 0) {
+					const bufferWidth = stringWidth(state.buffer);
+					if (state.col > 0 && state.col + bufferWidth > maxLineLength) {
 						startLine(true);
 					}
-					if (col + bufferWidth <= maxLineLength) {
-						this.write(buffer);
-						col = col + bufferWidth;
-						buffer = '';
+					if (state.col + bufferWidth <= maxLineLength) {
+						this.write(state.buffer);
+						state.col = state.col + bufferWidth;
+						state.buffer = '';
 						return;
 					}
-					for (const char of buffer) {
+					let i = 0;
+					while (i < state.buffer.length) {
+						if (state.buffer[i] === '\x1b') {
+							const end = state.buffer.indexOf('m', i);
+							if (end !== -1) {
+								this.write(state.buffer.slice(i, end + 1));
+								i = end + 1;
+								continue;
+							}
+						}
+						const char = String.fromCodePoint(state.buffer.codePointAt(i)!);
 						const charWidth = stringWidth(char);
-						if (col + charWidth > maxLineLength) {
+						if (state.col + charWidth > maxLineLength) {
 							startLine(true);
 						}
 						this.write(char);
-						col = col + charWidth;
+						state.col = state.col + charWidth;
+						i += char.length;
 					}
-					buffer = '';
+					state.buffer = '';
+				}
+			};
+			const handleChar = (char: string) => {
+				switch (char) {
+					case ' ': {
+						flush();
+						if (state.col > 0 && state.col < maxLineLength) {
+							this.write(' ');
+							state.col = state.col + 1;
+						}
+						break;
+					}
+					case '\n': {
+						flush();
+						startLine(true);
+						break;
+					}
+					default: {
+						state.buffer = state.buffer + char;
+						break;
+					}
 				}
 			};
 			stream.on('data', (data: string) => {
 				for (const char of data) {
-					if (row === 0) {
+					if (state.row === 0) {
 						startLine(false);
 					}
-					switch (char) {
-						case ' ': {
-							flush();
-							if (col > 0 && col < maxLineLength) {
-								this.write(' ');
-								col = col + 1;
-							}
-							break;
-						}
-						case '\n': {
-							flush();
-							startLine(true);
-							break;
-						}
-						default: {
-							buffer = buffer + char;
-							break;
-						}
+					if (state.pendingAsterisk && char !== '*') {
+						state.pendingAsterisk = false;
+						handleChar('*');
 					}
+					if (char === '*') {
+						if (state.pendingAsterisk) {
+							state.bold = !state.bold;
+							state.pendingAsterisk = false;
+							state.buffer += state.bold ? boldOn : boldOff;
+						} else {
+							state.pendingAsterisk = true;
+						}
+						continue;
+					}
+					if (char === '\`') {
+						state.code = !state.code;
+						state.buffer += state.code ? cyanOn : cyanOff;
+						continue;
+					}
+					handleChar(char);
 				}
 			});
 			stream.on('error', (err) => {
 				reject(err);
 			});
 			stream.on('end', () => {
+				if (state.pendingAsterisk) {
+					handleChar('*');
+				}
 				flush();
-				if (row > 0) {
+				if (state.bold) {
+					this.write(boldOff);
+				}
+				if (state.code) {
+					this.write(cyanOff);
+				}
+				if (state.row > 0) {
 					this.write('\n');
 				}
 				resolve();
