@@ -89,4 +89,4 @@ Gobby is open-source under the MIT license. That means you can do whatever you w
 [npm-badge]: https://img.shields.io/npm/v/gobby-agent?logo=npm
 [npm-url]: https://www.npmjs.com/package/gobby-agent
 [license-badge]: https://img.shields.io/npm/l/gobby-agent
-[license-url]: https://github.com/sweetpalma/gobby-agent/blob/master/LICENSE
+[license-url]: https://github.com/sweetpalma/gobby/blob/master/LICENSE
