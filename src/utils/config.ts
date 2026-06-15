@@ -69,6 +69,13 @@ export class Config {
 	}
 
 	/**
+	 * Workspace logs path.
+	 */
+	public get logsPath() {
+		return join(this.workspace, 'logs');
+	}
+
+	/**
 	 * Workspace cache path.
 	 */
 	public get cachePath() {

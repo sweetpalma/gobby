@@ -1,9 +1,10 @@
 import { EventEmitter } from 'node:events';
-import { mapValues } from 'es-toolkit';
+import { pick, mapValues } from 'es-toolkit';
 
 import { downloadModel } from './utils/download';
 import { Memory } from './utils/memory';
 import { SYSTEM_PROMPT } from './prompts/system';
+import { Logger } from './utils/logger';
 import { Config } from './utils/config';
 import {
 	Model,
@@ -44,8 +45,10 @@ export interface AgentEvents {
 	loadComplete: [];
 	idle: [];
 	idleReload: [];
+	idleError: [unknown];
 	prompt: [ModelPrompt];
 	promptComplete: [ModelPrompt, ModelResponse];
+	promptError: [unknown];
 	confirm: [string, (result: boolean) => void];
 }
 
@@ -58,14 +61,18 @@ export const AgentAbort = ModelAbort;
  * Agent Container.
  */
 export class Agent extends EventEmitter<AgentEvents> {
-	private functions?: Record<string, AgentFunction>;
 	private loadedModel?: Model;
+	private functions?: Record<string, AgentFunction>;
 	private idleTimer?: ReturnType<typeof setTimeout>;
 
 	constructor({ config, functions }: AgentOptions) {
 		super();
 		this.functions = functions;
 		this.config = config;
+		this.logger = new Logger({
+			path: this.config.logsPath,
+		});
+		this.attachLogger();
 		this.memory = new Memory({
 			path: this.config.memoryPath,
 			lengthLimit: this.config.get('memorySize'),
@@ -88,6 +95,11 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 * Agent config.
 	 */
 	public readonly config: Config;
+
+	/**
+	 * Agent logger.
+	 */
+	public readonly logger: Logger;
 
 	/**
 	 * Agent loaded model status.
@@ -183,6 +195,9 @@ export class Agent extends EventEmitter<AgentEvents> {
 			const response = await this.model.prompt(prompt);
 			this.emit('promptComplete', prompt, response);
 			return response;
+		} catch (err) {
+			this.emit('promptError', err);
+			throw err;
 		} finally {
 			this.resetIdleTimer();
 		}
@@ -230,14 +245,14 @@ export class Agent extends EventEmitter<AgentEvents> {
 			return;
 		}
 		this.idleTimer = setTimeout(async () => {
+			if (!this.loadedModel?.loaded) {
+				return;
+			}
 			try {
-				if (this.loadedModel?.loaded) {
-					await this.loadedModel.dispose();
-					this.emit('idle');
-				}
-			} catch {
-				// Nothing ever happens, really.
-				// chud.jpg
+				this.emit('idle');
+				await this.loadedModel.dispose();
+			} catch (err) {
+				this.emit('idleError', err);
 			}
 		}, millisecondTimeout);
 		this.idleTimer.unref();
@@ -252,5 +267,49 @@ export class Agent extends EventEmitter<AgentEvents> {
 			clearTimeout(this.idleTimer);
 			this.idleTimer = undefined;
 		}
+	}
+
+	/**
+	 * Attaches system logger.
+	 * @private
+	 */
+	private attachLogger() {
+		this.on('init', () => {
+			this.logger.info('Initializing agent...');
+		});
+		this.on('download', () => {
+			this.logger.info('Agent model is not found, downloading...');
+		});
+		this.on('downloadComplete', () => {
+			this.logger.info('Agent model downloaded.');
+		});
+		this.on('load', () => {
+			this.logger.info('Agent model is found, loading...');
+		});
+		this.on('loadComplete', () => {
+			this.logger.info('Agent model was successfully loaded.');
+		});
+		this.on('idle', () => {
+			this.logger.info('Model is idling, unloading...');
+		});
+		this.on('idleReload', () => {
+			this.logger.info('Model is not idling anymore, loading...');
+		});
+		this.on('idleError', (error) => {
+			this.logger.error('Failed to dispose idle model.', { error });
+		});
+		this.on('prompt', (data) => {
+			this.logger.info('Model request.', {
+				data: pick(data, ['text']),
+			});
+		});
+		this.on('promptError', (error) => {
+			this.logger.error('Model error.', { error });
+		});
+		this.on('promptComplete', (_, data) => {
+			this.logger.info('Model response.', {
+				data: pick(data, ['text']),
+			});
+		});
 	}
 }

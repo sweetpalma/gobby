@@ -37,27 +37,28 @@ const agent = new Agent({
 });
 
 const load = async (showTitle?: boolean) => {
-	try {
-		agent.on('download', (pct) => {
+	// prettier-ignore
+	const listeners: Array<Parameters<typeof agent['on']>> = [
+		['download', (pct) => {
 			tui.print('Brain missing!');
 			tui.print(chalk.gray('Scavenging Hugging Face for a new one...'));
 			tui.startProgress(100, pct);
-		});
-		agent.on('downloadProgress', (pct) => {
+		}],
+		['downloadProgress', (pct) => {
 			tui.updateProgress(pct);
-		});
-		agent.on('downloadComplete', () => {
+		}],
+		['downloadComplete', () => {
 			tui.stopProgress();
 			tui.print(chalk.gray('Installation complete.'));
 			tui.print();
-		});
-		agent.on('load', () => {
+		}],
+		['load', () => {
 			tui.startSpinner('Warming up...');
-		});
-		agent.on('loadComplete', () => {
+		}],
+		['loadComplete', () => {
 			tui.stopSpinner();
-		});
-		agent.on('init', () => {
+		}],
+		['init', () => {
 			if (showTitle) {
 				const infoTitle = title
 					.replace('$BRAIN$', agent.config.get('modelRepo'))
@@ -66,13 +67,20 @@ const load = async (showTitle?: boolean) => {
 				tui.print(infoTitle);
 				tui.print();
 			}
+		}],
+	];
+	try {
+		listeners.forEach((args) => {
+			agent.on(...args);
 		});
 		await agent.load();
 	} catch (err) {
 		tui.print(formatError(err));
 		process.exit(-1);
 	} finally {
-		agent.removeAllListeners();
+		listeners.forEach((args) => {
+			agent.off(...args);
+		});
 	}
 };
 

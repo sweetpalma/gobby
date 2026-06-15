@@ -53,6 +53,8 @@
 		"ora": "^9.4.0",
 		"string-width": "^8.2.1",
 		"terminal-size": "^4.0.1",
+		"winston": "^3.19.0",
+		"winston-daily-rotate-file": "^5.0.0",
 		"yaml": "^2.9.0",
 		"zod": "^4.4.3"
 	},
