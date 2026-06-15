@@ -6,12 +6,7 @@
 [![license-badge]][license-url]
 [![typescript-badge]][typescript-url]
 
-
-```text
- ▄▄ ▄██████▄ ▄▄   Gobby Agent
-  ▀███ ██ ███▀    Brain : unsloth/Qwen3.5-4B-GGUF
-    ▀██████▀      Memos : 0/4096
-```
+![demo](demo.gif)
 
 Gobby is a mischievous gremlin agent that lives in your terminal. No clouds, no API keys, no sending your secrets to the hoomans in the sky - just you, your machine, and a tiny virtual creature who calls you "hooman."
 
