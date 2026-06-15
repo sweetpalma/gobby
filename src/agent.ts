@@ -123,15 +123,20 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 * Downloads and loads the agent model.
 	 */
 	public async load() {
+		if (this.loadedModel) {
+			return;
+		}
+		if (!(await this.config.exists())) {
+			await this.config.save();
+		}
 		await this.config.load();
-		await this.config.save();
 		await this.memory.load();
 		this.memory.lengthLimit = this.config.get('memorySize');
 		this.emit('init');
 		const path = await downloadModel({
+			outputDir: this.config.modelsPath,
 			repo: this.config.get('modelRepo'),
 			path: this.config.get('modelPath'),
-			outputDir: this.config.modelsPath,
 			onDownload: (pct) => this.emit('download', pct),
 			onProgress: (pct) => this.emit('downloadProgress', pct),
 			onComplete: () => this.emit('downloadComplete'),
@@ -139,8 +144,8 @@ export class Agent extends EventEmitter<AgentEvents> {
 		this.emit('load');
 		this.loadedModel = new Model({
 			path,
-			cachePath: this.config.cachePath,
 			systemPrompt: this.systemPrompt,
+			cachePath: this.config.cachePath,
 			temperature: this.config.get('temperature'),
 			contextSize: this.config.get('contextSize'),
 			functions: this.getFunctionsWithContext(),
@@ -203,15 +208,15 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 * @private
 	 */
 	private getFunctionsWithContext() {
-		return (
-			this.functions &&
-			mapValues(this.functions, (fn) => {
-				return Model.function({
-					...fn,
-					handler: (params) => fn.handler(params, this),
-				});
-			})
-		);
+		if (!this.functions) {
+			return {};
+		}
+		return mapValues(this.functions, (fn) => {
+			return Model.function({
+				...fn,
+				handler: (params) => fn.handler(params, this),
+			});
+		});
 	}
 
 	/**
@@ -225,14 +230,14 @@ export class Agent extends EventEmitter<AgentEvents> {
 			return;
 		}
 		this.idleTimer = setTimeout(async () => {
-			if (this.loadedModel?.loaded) {
-				try {
+			try {
+				if (this.loadedModel?.loaded) {
 					await this.loadedModel.dispose();
 					this.emit('idle');
-				} catch {
-					// Nothing ever happens, really.
-					// chud.jpg
 				}
+			} catch {
+				// Nothing ever happens, really.
+				// chud.jpg
 			}
 		}, millisecondTimeout);
 		this.idleTimer.unref();

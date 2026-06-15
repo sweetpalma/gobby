@@ -112,18 +112,26 @@ export class Config {
 	}
 
 	/**
-	 * Loads config.
+	 * Checks if config exists in a current workspace.
+	 */
+	public async exists() {
+		try {
+			await readFile(this.configPath, 'utf-8');
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	/**
+	 * Loads config from a current workspace.
 	 */
 	public async load() {
-		let str: string;
-		try {
-			str = await readFile(this.configPath, 'utf-8');
-		} catch {
-			await this.save();
+		if (!(await this.exists())) {
 			return;
 		}
-		const partialSchema = ConfigSchema.partial();
-		const { data, error } = partialSchema.safeParse(yml.parse(str));
+		const config = await readFile(this.configPath, 'utf-8');
+		const { data, error } = ConfigSchema.partial().safeParse(yml.parse(config));
 		if (!error) {
 			Object.assign(this.params, data);
 		} else {
@@ -133,7 +141,7 @@ export class Config {
 	}
 
 	/**
-	 * Saves config.
+	 * Saves config to a current workspace.
 	 */
 	public async save() {
 		const str = yml.stringify(this.params);
