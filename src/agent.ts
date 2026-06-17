@@ -113,7 +113,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 * @remarks Throws Reference error if model is not loaded.
 	 */
 	public get model() {
-		if (!this.loadedModel) {
+		if (!this.loadedModel || !this.loadedModel.loaded) {
 			throw new ReferenceError('Model is not loaded.');
 		} else {
 			return this.loadedModel;
@@ -135,7 +135,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 * Downloads and loads the agent model.
 	 */
 	public async load() {
-		if (this.loadedModel) {
+		if (this.loaded) {
 			return;
 		}
 		if (!(await this.config.exists())) {
@@ -174,7 +174,6 @@ export class Agent extends EventEmitter<AgentEvents> {
 		this.clearIdleTimer();
 		if (this.loadedModel) {
 			await this.loadedModel.dispose();
-			this.loadedModel = undefined;
 		}
 	}
 
@@ -186,7 +185,9 @@ export class Agent extends EventEmitter<AgentEvents> {
 	public async prompt(prompt: ModelPrompt) {
 		this.clearIdleTimer();
 		try {
-			if (this.loadedModel && !this.loadedModel.loaded) {
+			if (!this.loadedModel) {
+				await this.load();
+			} else if (!this.loadedModel.loaded) {
 				this.emit('idleReload');
 				await this.loadedModel.load();
 			}

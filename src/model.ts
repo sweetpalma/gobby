@@ -32,7 +32,7 @@ export interface ModelPrompt {
 	text: string;
 	skipHistory?: boolean;
 	signal?: AbortSignal;
-	stream?: Writable;
+	onChunk?: (chunk: string) => void;
 }
 
 /**
@@ -204,14 +204,8 @@ export class Model {
 					signal: prompt.signal,
 					stopOnAbortSignal: true,
 					onTextChunk: (chunk) => {
-						if (buffer.length === 0 && chunk.trim().length === 0) {
-							return; // trim beginning
-						} else if (/\s\s\s$/i.test(buffer + chunk)) {
-							return; // trim empty lines
-						} else {
-							prompt.stream?.write(chunk);
-							buffer = buffer + chunk;
-						}
+						buffer = buffer + chunk;
+						prompt.onChunk?.call(null, chunk);
 					},
 				});
 				return {
@@ -246,7 +240,6 @@ export class Model {
 		try {
 			return await Promise.race([infer(), waitForAbortSignal()]);
 		} finally {
-			prompt.stream?.end();
 			this.sessionMutex.release();
 		}
 	}
