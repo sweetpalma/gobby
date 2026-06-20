@@ -33,8 +33,8 @@
 		"chat": "tsx src/index.ts",
 		"build": "npm run typecheck && npm run bundle",
 		"bundle": "esbuild src/index.ts  --outdir=dist --platform=node --packages=external --format=esm  --bundle",
-		"format-check": "prettier --check \"src/**/*.ts\"",
-		"format": "prettier --write \"src/**/*.ts\"",
+		"format-check": "prettier --check \"src/**/*.{ts,md,yml,json}\"",
+		"format": "prettier --write \"src/**/*.{ts,md,yml,json}\"",
 		"typecheck": "tsc --noEmit",
 		"prepack": "npm run build",
 		"prepare": "husky"
@@ -63,6 +63,7 @@
 		"@types/react": "^19.2.17",
 		"esbuild": "^0.28.0",
 		"husky": "^9.1.7",
+		"lint-staged": "^17.0.8",
 		"prettier": "^3.8.3",
 		"tsx": "^4.22.3",
 		"typescript": "^6.0.3"
@@ -71,5 +72,8 @@
 		"esbuild": true,
 		"fsevents": true,
 		"node-llama-cpp": true
+	},
+	"lint-staged": {
+		"**/*.{ts,md,yml,json}": "prettier --write"
 	}
 }
