@@ -42,31 +42,14 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 	const [status, setStatus] = useState<TerminalStatus>(TerminalStatus.COLD);
 	const [history, setHistory] = useState<Array<TerminalMessageProps>>([]);
 
-	const [activeMessage, setActiveMessage] = useState<TerminalMessageProps>();
 	const [confirmation, setConfirmation] = useState<TerminalConfirmationProps>();
 	const [downloadProgress, setDownloadProgress] = useState(0);
 
+	const [activeMessage, setActiveMessage] = useState<TerminalMessageProps>();
+	const [activeTool, setActiveTool] = useState<string>();
+
 	const abortController = useRef(new AbortController());
 	const isInteractive = !!process.stdin.isTTY;
-
-	const handleChunk = (chunk: string) => {
-		setActiveMessage((current) => ({
-			type: 'model',
-			text: (current?.text ?? '') + chunk,
-		}));
-	};
-
-	const handleConfirm = (result: boolean) => {
-		if (!confirmation) {
-			return;
-		}
-		try {
-			const { resolve } = confirmation;
-			resolve(result);
-		} finally {
-			setConfirmation(undefined);
-		}
-	};
 
 	const handlePrompt = async (text: string, isInitialPrompt: boolean = false) => {
 		if (text.trim().length === 0) {
@@ -81,7 +64,8 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 			const response = await agent.prompt({
 				text,
 				signal: abortController.current.signal,
-				onChunk: handleChunk,
+				onFunctionCall: handleFunction,
+				onTextChunk: handleChunk,
 			});
 			setHistory((current) => [...current, { type: 'model', text: response.text }]);
 		} catch (err) {
@@ -91,6 +75,7 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 			handleError(err);
 		} finally {
 			setStatus(TerminalStatus.READY);
+			setActiveTool(undefined);
 			setActiveMessage(undefined);
 		}
 	};
@@ -98,6 +83,29 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 	const handleError = (err: unknown) => {
 		const message = err instanceof Error ? err.message : `${err}`;
 		setHistory((current) => [...current, { type: 'error', text: message }]);
+	};
+
+	const handleChunk = (chunk: string) => {
+		setActiveMessage((current) => ({
+			type: 'model',
+			text: (current?.text ?? '') + chunk,
+		}));
+	};
+
+	const handleFunction = (name: string, args: unknown) => {
+		setActiveTool(name);
+	};
+
+	const handleConfirm = (result: boolean) => {
+		if (!confirmation) {
+			return;
+		}
+		try {
+			const { resolve } = confirmation;
+			resolve(result);
+		} finally {
+			setConfirmation(undefined);
+		}
 	};
 
 	// prettier-ignore
@@ -172,10 +180,15 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 					h(Spinner, { type: 'dots' }), 
 					h(Text, { dimColor: true }, 'Warming up...')
 				),
-			status === TerminalStatus.THINKING && !confirmation &&
+			status === TerminalStatus.THINKING && !confirmation && !activeTool &&
 				h(Box, { gap: 1 },
 					h(Spinner, { type: 'dots' }), 
 					h(Text, { dimColor: true }, 'Thinking...')
+				),
+			status === TerminalStatus.THINKING && !confirmation && activeTool &&
+				h(Box, { gap: 1 },
+					h(Spinner, { type: 'dots' }), 
+					h(Text, { dimColor: true }, `Using "${activeTool}"...`)
 				),
 			status === TerminalStatus.THINKING && confirmation &&
 				h(TerminalConfirmation, {

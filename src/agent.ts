@@ -50,6 +50,7 @@ export interface AgentEvents {
 	promptComplete: [ModelPrompt, ModelResponse];
 	promptError: [unknown];
 	confirm: [string, (result: boolean) => void];
+	function: [string, unknown];
 }
 
 /**
@@ -193,7 +194,13 @@ export class Agent extends EventEmitter<AgentEvents> {
 			}
 			this.emit('prompt', prompt);
 			this.model.systemPrompt = this.systemPrompt;
-			const response = await this.model.prompt(prompt);
+			const response = await this.model.prompt({
+				...prompt,
+				onFunctionCall: (name, args) => {
+					prompt.onFunctionCall?.call(null, name, args);
+					this.emit('function', name, args);
+				},
+			});
 			this.emit('promptComplete', prompt, response);
 			return response;
 		} catch (err) {
@@ -284,12 +291,6 @@ export class Agent extends EventEmitter<AgentEvents> {
 		this.on('downloadComplete', () => {
 			this.logger.info('Agent model downloaded.');
 		});
-		this.on('load', () => {
-			this.logger.info('Agent model is found, loading...');
-		});
-		this.on('loadComplete', () => {
-			this.logger.info('Agent model was successfully loaded.');
-		});
 		this.on('idle', () => {
 			this.logger.info('Model is idling, unloading...');
 		});
@@ -298,6 +299,14 @@ export class Agent extends EventEmitter<AgentEvents> {
 		});
 		this.on('idleError', (error) => {
 			this.logger.error('Failed to dispose idle model.', { error });
+		});
+		this.on('load', () => {
+			this.logger.info('Agent model is found, loading...');
+		});
+		this.on('loadComplete', () => {
+			this.logger.info('Agent model was successfully loaded.', {
+				systemPrompt: this.systemPrompt,
+			});
 		});
 		this.on('prompt', (data) => {
 			this.logger.info('Model request.', {
@@ -310,6 +319,12 @@ export class Agent extends EventEmitter<AgentEvents> {
 		this.on('promptComplete', (_, data) => {
 			this.logger.info('Model response.', {
 				data: pick(data, ['text']),
+			});
+		});
+		this.on('function', (functionName, functionArgs) => {
+			this.logger.info('Function call.', {
+				functionName,
+				functionArgs,
 			});
 		});
 	}

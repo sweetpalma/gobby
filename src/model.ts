@@ -32,7 +32,8 @@ export interface ModelPrompt {
 	text: string;
 	skipHistory?: boolean;
 	signal?: AbortSignal;
-	onChunk?: (chunk: string) => void;
+	onFunctionCall?: (name: string, args: unknown) => void;
+	onTextChunk?: (chunk: string) => void;
 }
 
 /**
@@ -71,6 +72,7 @@ export type ModelFunctionParamSchemaToType<T extends ModelFunctionParamSchema> =
  * Model Abort Signal.
  */
 export class ModelAbort extends Error {
+	public override name = 'ModelAbort';
 	constructor(msg?: string) {
 		super(msg ?? 'Model inference was aborted.');
 	}
@@ -197,19 +199,32 @@ export class Model {
 		const infer = async (): Promise<ModelResponse> => {
 			const history = this.session.getChatHistory();
 			try {
-				let buffer = '';
+				let textBuffer = '';
+				let fnArgs = '';
+				let fnName = '';
 				await this.session.prompt(prompt.text, {
 					functions: this.opts.functions,
 					temperature: this.opts.temperature ?? 0.25,
 					signal: prompt.signal,
 					stopOnAbortSignal: true,
 					onTextChunk: (chunk) => {
-						buffer = buffer + chunk;
-						prompt.onChunk?.call(null, chunk);
+						textBuffer = textBuffer + chunk;
+						prompt.onTextChunk?.call(null, chunk);
+					},
+					onFunctionCallParamsChunk: (chunk) => {
+						if (fnName.length === 0) {
+							fnName = chunk.functionName;
+						}
+						fnArgs = fnArgs + chunk.paramsChunk;
+						if (chunk.done) {
+							prompt.onFunctionCall?.call(null, fnName, JSON.parse(fnArgs));
+							fnName = '';
+							fnArgs = '';
+						}
 					},
 				});
 				return {
-					text: buffer,
+					text: textBuffer,
 				};
 			} catch (err) {
 				const message = err instanceof Error ? err.message : `${err}`;
