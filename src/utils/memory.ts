@@ -18,6 +18,13 @@ export interface MemoryOptions {
 }
 
 /**
+ * Memory Error.
+ */
+export class MemoryError extends Error {
+	public override name: string = 'MemoryError';
+}
+
+/**
  * Memory Container.
  * @remarks Stores a list of facts as a YAML file.
  */
@@ -44,40 +51,46 @@ export class Memory {
 
 	/**
 	 * Adds a new fact, skipping exact duplicates.
-	 * @returns Whether the fact was added.
+	 * Throws an error if the fact is too big to remember.
 	 */
-	public add(fact: string): boolean {
+	public add(fact: string) {
 		const trimmed = fact.trim();
 		if (trimmed.length === 0) {
-			return false;
+			throw new MemoryError('Fact is empty.');
 		}
 		if (this.facts.includes(trimmed)) {
-			return false;
+			return;
 		}
 		this.facts.push(trimmed);
-		if (this.length <= this.lengthLimit) {
-			return true;
-		} else {
+		if (this.length >= this.lengthLimit) {
 			this.facts.pop();
-			return false;
+			throw new MemoryError('Fact is too big to remember.');
 		}
 	}
 
 	/**
-	 * Removes the first fact matching a query (case-insensitive substring).
-	 * @returns Whether the fact was removed.
+	 * Removes a fact matching a query (case-insensitive substring).
+	 * Throws an error if there are multiple matches or no matches at all.
 	 */
 	public remove(query: string) {
-		const lower = query.toLowerCase();
-		const index = this.facts.findIndex((fact) => {
+		const trimmed = query.trim();
+		if (trimmed.length === 0) {
+			throw new TypeError('Search query cannot be empty.');
+		}
+		const lower = trimmed.toLowerCase();
+		const matches = this.facts.filter((fact) => {
 			return fact.toLowerCase().includes(lower);
 		});
-		if (index >= 0) {
-			this.facts.splice(index, 1);
-			return true;
-		} else {
-			return false;
+		if (matches.length === 0) {
+			throw new MemoryError(`No facts matched the query "${query}".`);
 		}
+		if (matches.length > 1) {
+			throw new MemoryError(
+				`The query "${query}" matched multiple facts. Please be more specific.`,
+			);
+		}
+		const index = this.facts.indexOf(matches[0]!);
+		this.facts.splice(index, 1);
 	}
 
 	/**

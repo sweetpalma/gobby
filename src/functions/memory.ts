@@ -16,12 +16,7 @@ export const memoryRemember = Agent.function({
 	},
 	handler: async ({ fact }, agent: Agent) => {
 		try {
-			const added = agent.memory.add(fact);
-			if (!added) {
-				return {
-					error: 'Failed to memorize: Memory is probably full.',
-				};
-			}
+			agent.memory.add(fact);
 			await agent.memory.save();
 			return {
 				result: `Memorized (${agent.memory.length}/${agent.memory.lengthLimit} characters used).`,
@@ -36,7 +31,7 @@ export const memoryRemember = Agent.function({
 
 export const memoryForget = Agent.function({
 	description:
-		'Forget a previously memorized fact about the user. Use this when the user asks you to forget something, or when a fact is no longer accurate.',
+		'Forget a previously memorized fact about the user. Use this when the user asks you to forget something, or when a fact is no longer accurate. If you are unsure about the exact wording, use memoryStatus first to find it.',
 	params: {
 		type: 'object',
 		required: ['query'],
@@ -44,18 +39,13 @@ export const memoryForget = Agent.function({
 			query: {
 				type: 'string',
 				description:
-					'A search query to match the fact to forget (e.g. "name" to forget a fact containing "name").',
+					'A specific search query to match the fact to forget. It must match exactly one fact to succeed.',
 			},
 		},
 	},
 	handler: async ({ query }, agent: Agent) => {
 		try {
-			const forgotten = agent.memory.remove(query);
-			if (!forgotten) {
-				return {
-					error: 'Failed to forget: Search is likely failed.',
-				};
-			}
+			agent.memory.remove(query);
 			await agent.memory.save();
 			return {
 				result: 'Forgotten.',
