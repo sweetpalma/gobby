@@ -129,20 +129,21 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 
 	// prettier-ignore
 	useInput((char, key) => {
-		if (!key.ctrl || char !== 'c') {
-			return;
-		}
-		if (state.status === TerminalStatus.THINKING) {
-			abortController.current.abort();
-		} else {
+		const exitGracefully = () => {
 			dispatch({ type: 'modelExiting' });
 			agent.dispose()
-				.catch(() => {
-					process.exit(0);
-				})
-				.then(() => {
-					process.exit(0);
-				});
+				.catch(() => process.exit(0))
+				.then(() => process.exit(0));
+		};
+		if (key.ctrl && char === 'd') {
+			exitGracefully();
+		}
+		if (key.ctrl && char === 'c') {
+			if (state.status === TerminalStatus.THINKING) {
+				abortController.current.abort();
+			} else {
+				exitGracefully();
+			}
 		}
 	}, {
 		isActive: isInteractive,
