@@ -1,12 +1,11 @@
-import { createElement as h, useEffect, useState, useRef } from 'react';
+import { createElement as h, useEffect, useRef } from 'react';
 import { render as inkRender, Box, Text, useInput } from 'ink';
 import { Spinner } from '@inkjs/ui';
 
 import { Agent, AgentEvents, AgentAbort } from '../../agent';
+import { TerminalStatus, useTerminalStore } from './store';
 import {
 	TerminalMessage,
-	TerminalMessageProps,
-	TerminalConfirmationProps,
 	TerminalConfirmation,
 	TerminalProgress,
 	TerminalHeader,
@@ -24,31 +23,12 @@ export interface TerminalProps {
 }
 
 /**
- * @internal
- * Terminal Model Status.
- */
-export const enum TerminalStatus {
-	COLD = 'cold',
-	DOWNLOADING = 'downloading',
-	LOADING = 'loading',
-	READY = 'ready',
-	THINKING = 'thinking',
-}
-
-/**
  * Terminal Entry Point.
  */
 export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
-	const [status, setStatus] = useState<TerminalStatus>(TerminalStatus.COLD);
-	const [history, setHistory] = useState<Array<TerminalMessageProps>>([]);
-
-	const [confirmation, setConfirmation] = useState<TerminalConfirmationProps>();
-	const [downloadProgress, setDownloadProgress] = useState(0);
-
-	const [activeMessage, setActiveMessage] = useState<TerminalMessageProps>();
-	const [activeTool, setActiveTool] = useState<string>();
-
-	const abortController = useRef(new AbortController());
+	const { state, dispatch } = useTerminalStore();
+	const confirmCallback = useRef<(result: boolean) => void | null>(null);
+	const abortController = useRef<AbortController>(new AbortController());
 	const isInteractive = !!process.stdin.isTTY;
 
 	const handlePrompt = async (text: string, isInitialPrompt: boolean = false) => {
@@ -56,10 +36,13 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 			return;
 		}
 		try {
-			setStatus(TerminalStatus.THINKING);
+			dispatch({ type: 'modelThink' });
 			abortController.current = new AbortController();
 			if (!isInitialPrompt) {
-				setHistory((current) => [...current, { type: 'user', text }]);
+				dispatch({
+					type: 'historyPush',
+					data: { type: 'user', text },
+				});
 			}
 			const response = await agent.prompt({
 				text,
@@ -67,45 +50,44 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 				onFunctionCall: handleFunction,
 				onTextChunk: handleChunk,
 			});
-			setHistory((current) => [...current, { type: 'model', text: response.text }]);
+			dispatch({
+				type: 'historyPush',
+				data: { type: 'model', text: response.text },
+			});
 		} catch (err) {
-			if (err instanceof AgentAbort) {
-				return;
+			if (!(err instanceof AgentAbort)) {
+				handleError(err);
 			}
-			handleError(err);
 		} finally {
-			setStatus(TerminalStatus.READY);
-			setActiveTool(undefined);
-			setActiveMessage(undefined);
+			dispatch({ type: 'modelReady' });
+			dispatch({ type: 'activeTool', data: null });
+			dispatch({ type: 'activeMessageClear' });
 		}
 	};
 
 	const handleError = (err: unknown) => {
-		const message = err instanceof Error ? err.message : `${err}`;
-		setHistory((current) => [...current, { type: 'error', text: message }]);
+		const text = err instanceof Error ? err.message : `${err}`;
+		dispatch({
+			type: 'historyPush',
+			data: { type: 'error', text },
+		});
 	};
 
 	const handleChunk = (chunk: string) => {
-		setActiveMessage((current) => ({
-			type: 'model',
-			text: (current?.text ?? '') + chunk,
-		}));
+		dispatch({
+			type: 'activeMessageAppend',
+			data: chunk,
+		});
 	};
 
 	const handleFunction = (name: string, args: unknown) => {
-		setActiveTool(name);
+		dispatch({ type: 'activeTool', data: { name, args } });
 	};
 
 	const handleConfirm = (result: boolean) => {
-		if (!confirmation) {
-			return;
-		}
-		try {
-			const { resolve } = confirmation;
-			resolve(result);
-		} finally {
-			setConfirmation(undefined);
-		}
+		confirmCallback.current?.call(null, result);
+		confirmCallback.current = null;
+		dispatch({ type: 'confirmClear' });
 	};
 
 	// prettier-ignore
@@ -115,20 +97,20 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 		};
 		const listeners: AgentListeners = {
 			confirm: (text, resolve) => {
-				setConfirmation({ text, resolve });
+				confirmCallback.current = resolve;
+				dispatch({ type: 'confirmRequest', data: text });
 			},
-			download: (pct) => {
-				setStatus(TerminalStatus.DOWNLOADING);
-				setDownloadProgress(pct);
+			download: (downloadProgress) => {
+				dispatch({ type: 'modelDownload', data: { downloadProgress } });
 			},
-			downloadProgress: (pct) => {
-				setDownloadProgress(pct);
+			downloadProgress: (downloadProgress) => {
+				dispatch({ type: 'modelDownload', data: { downloadProgress } });
 			},
 			load: () => {
-				setStatus(TerminalStatus.LOADING);
+				dispatch({ type: 'modelLoad' });
 			},
 			loadComplete: () => {
-				setStatus(TerminalStatus.READY);
+				dispatch({ type: 'modelReady' });
 				if (initialPrompt) {
 					const isInitialPrompt = true;
 					handlePrompt(initialPrompt, isInitialPrompt);
@@ -146,15 +128,21 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 	}, [agent]);
 
 	// prettier-ignore
-	useInput(async (char, key) => {
+	useInput((char, key) => {
 		if (!key.ctrl || char !== 'c') {
 			return;
 		}
-		if (status === TerminalStatus.THINKING) {
+		if (state.status === TerminalStatus.THINKING) {
 			abortController.current.abort();
 		} else {
-			await agent.dispose();
-			process.exit(0);
+			dispatch({ type: 'modelExiting' });
+			agent.dispose()
+				.catch(() => {
+					process.exit(0);
+				})
+				.then(() => {
+					process.exit(0);
+				});
 		}
 	}, {
 		isActive: isInteractive,
@@ -163,39 +151,44 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 	// prettier-ignore
 	return h(TerminalThemeProvider, {},
 		h(Box, { flexDirection: 'column', gap: 1, maxWidth: maxWidth ?? 80 },
-			status !== TerminalStatus.COLD && isInteractive &&
+			state.status !== TerminalStatus.COLD && isInteractive &&
 				h(TerminalHeader, {
 					model: agent.config.get('modelPath'),
 					memos: `${agent.memory.length}/${agent.memory.lengthLimit}`,
 				}),
-			history.map((msg, key) => 
+			state.history.map((msg, key) => 
 				h(TerminalMessage, { key, ...msg }),
 			),
-			activeMessage && activeMessage.text.trim().length > 0 &&
-				h(TerminalMessage, activeMessage),
-			status === TerminalStatus.DOWNLOADING &&
-				h(TerminalProgress, { value: downloadProgress }),
-			status === TerminalStatus.LOADING &&
+			state.activeMessage && state.activeMessage.text.trim().length > 0 &&
+				h(TerminalMessage, state.activeMessage),
+			state.status === TerminalStatus.DOWNLOADING &&
+				h(TerminalProgress, { value: state.downloadProgress }),
+			state.status === TerminalStatus.LOADING &&
 				h(Box, { gap: 1 },
 					h(Spinner, { type: 'dots' }), 
 					h(Text, { dimColor: true }, 'Warming up...')
 				),
-			status === TerminalStatus.THINKING && !confirmation && !activeTool &&
+			state.status === TerminalStatus.EXITING &&
+				h(Box, { gap: 1 },
+					h(Spinner, { type: 'dots' }), 
+					h(Text, { dimColor: true }, 'Exiting...')
+				),
+			state.status === TerminalStatus.THINKING && !state.confirmation && !state.activeTool &&
 				h(Box, { gap: 1 },
 					h(Spinner, { type: 'dots' }), 
 					h(Text, { dimColor: true }, 'Thinking...')
 				),
-			status === TerminalStatus.THINKING && !confirmation && activeTool &&
+			state.status === TerminalStatus.THINKING && !state.confirmation && state.activeTool &&
 				h(Box, { gap: 1 },
 					h(Spinner, { type: 'dots' }), 
-					h(Text, { dimColor: true }, `Using "${activeTool}"...`)
+					h(Text, { dimColor: true }, `Using "${state.activeTool.name}"...`)
 				),
-			status === TerminalStatus.THINKING && confirmation &&
+			state.status === TerminalStatus.THINKING && state.confirmation &&
 				h(TerminalConfirmation, {
-					text: confirmation.text,
+					text: state.confirmation,
 					resolve: handleConfirm,
 				}),
-			status === TerminalStatus.READY && isInteractive &&
+			state.status === TerminalStatus.READY && isInteractive &&
 				h(TerminalInput, {
 					onSubmit: handlePrompt, 
 				}),
