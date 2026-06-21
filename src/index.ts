@@ -33,7 +33,8 @@ const main = async (initialPrompt?: string) => {
 const query = args.args.join(' ').trim();
 const queryIsDefined = query.length > 0;
 if (process.stdin.isTTY) {
-	const initialPrompt = queryIsDefined ? query : 'Hello!';
+	// prettier-ignore
+	const initialPrompt = queryIsDefined ? query : 'Hello! Greet me in a very short manner.';
 	main(initialPrompt);
 } else {
 	const piped = readFileSync(0).toString();
