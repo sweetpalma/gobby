@@ -41,12 +41,12 @@ export const downloadBlob = async ({ path, blob, ...events }: DownloadBlobOption
 	const writeStream = createWriteStream(path, {
 		flags: existingSize > 0 ? 'a' : 'w',
 	});
-	events.onDownload?.call(null, Math.floor((existingSize / totalSize) * 100));
+	events.onDownload?.(Math.floor((existingSize / totalSize) * 100));
 	return new Promise<void>((resolve, reject) => {
 		let downloadedBytes = existingSize;
 		inputStream.on('data', (chunk: Buffer) => {
 			downloadedBytes = downloadedBytes + chunk.length;
-			events.onProgress?.call(null, Math.floor((downloadedBytes / totalSize) * 100));
+			events.onProgress?.(Math.floor((downloadedBytes / totalSize) * 100));
 		});
 		inputStream.on('error', (err) => {
 			reject(err);
@@ -55,7 +55,7 @@ export const downloadBlob = async ({ path, blob, ...events }: DownloadBlobOption
 			reject(err);
 		});
 		writeStream.on('finish', () => {
-			events.onComplete?.call(null);
+			events.onComplete?.();
 			resolve();
 		});
 		inputStream.pipe(writeStream);

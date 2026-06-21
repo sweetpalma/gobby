@@ -85,7 +85,7 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 	};
 
 	const handleConfirm = (result: boolean) => {
-		confirmCallback.current?.call(null, result);
+		confirmCallback.current?.(result);
 		confirmCallback.current = null;
 		dispatch({ type: 'confirmClear' });
 	};

@@ -216,14 +216,14 @@ export class Model {
 						}
 						fnArgs = fnArgs + chunk.paramsChunk;
 						if (chunk.done) {
-							prompt.onFunctionCall?.call(null, fnName, JSON.parse(fnArgs));
+							prompt.onFunctionCall?.(fnName, JSON.parse(fnArgs));
 							fnName = '';
 							fnArgs = '';
 						}
 					},
 					onTextChunk: (chunk) => {
 						textBuffer = textBuffer + chunk;
-						prompt.onTextChunk?.call(null, chunk);
+						prompt.onTextChunk?.(chunk);
 					},
 				});
 				return {

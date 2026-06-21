@@ -198,7 +198,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 			const response = await this.model.prompt({
 				...prompt,
 				onFunctionCall: (name, args) => {
-					prompt.onFunctionCall?.call(null, name, args);
+					prompt.onFunctionCall?.(name, args);
 					this.emit('function', name, args);
 				},
 			});
