@@ -171,7 +171,7 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 			history.map((msg, key) => 
 				h(TerminalMessage, { key, ...msg }),
 			),
-			activeMessage &&
+			activeMessage && activeMessage.text.trim().length > 0 &&
 				h(TerminalMessage, activeMessage),
 			status === TerminalStatus.DOWNLOADING &&
 				h(TerminalProgress, { value: downloadProgress }),
