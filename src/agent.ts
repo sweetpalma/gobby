@@ -188,7 +188,8 @@ export class Agent extends EventEmitter<AgentEvents> {
 		try {
 			if (!this.loadedModel) {
 				await this.load();
-			} else if (!this.loadedModel.loaded) {
+			}
+			if (this.loadedModel && !this.loadedModel.loaded) {
 				this.emit('idleReload');
 				await this.loadedModel.load();
 			}

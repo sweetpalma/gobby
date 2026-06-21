@@ -148,6 +148,9 @@ export class Model {
 	public async load() {
 		await this.sessionMutex.acquire();
 		try {
+			if (this.loadedSession) {
+				return;
+			}
 			const llama = await getLlama({
 				logLevel: LlamaLogLevel.error,
 			});
@@ -207,10 +210,6 @@ export class Model {
 					temperature: this.opts.temperature ?? 0.25,
 					signal: prompt.signal,
 					stopOnAbortSignal: true,
-					onTextChunk: (chunk) => {
-						textBuffer = textBuffer + chunk;
-						prompt.onTextChunk?.call(null, chunk);
-					},
 					onFunctionCallParamsChunk: (chunk) => {
 						if (fnName.length === 0) {
 							fnName = chunk.functionName;
@@ -221,6 +220,10 @@ export class Model {
 							fnName = '';
 							fnArgs = '';
 						}
+					},
+					onTextChunk: (chunk) => {
+						textBuffer = textBuffer + chunk;
+						prompt.onTextChunk?.call(null, chunk);
 					},
 				});
 				return {
