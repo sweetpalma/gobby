@@ -1,6 +1,5 @@
 # Gobby
 
-
 [![npm-badge]][npm-url]
 [![ci-badge]][ci-url]
 [![license-badge]][license-url]
@@ -8,32 +7,35 @@
 
 ![demo](demo.gif)
 
-Gobby is a mischievous gremlin agent that lives in your terminal. No clouds, no API keys, no sending your secrets to the hoomans in the sky - just you, your machine, and a tiny virtual creature who calls you "hooman."
+Gobby is a blazing fast gremlin agent that never leaves your machine. No clouds, no API keys, no sending your secrets to the hoomans in the sky - just you, a tiny virtual creature, and nothing inbetween.
 
-## Features
+**Features:**
+
+- **Zero Config:** NPM install and run. No twelve-step wizards.
+- **Completely Local:** No telemetry, no tracking, no corporate bullshit.
+- **Runs on Fumes:** Fits comfortably in ~4GB of RAM, and unloads itself when idle.
+- **Super Fast:** Boots in under 3s on modern Macs.
 
 ### Zero Configuration
 
-Install it. Run it. That's the whole setup.
+Just install it and run. That's the whole setup.
 
 ```bash
 npm install -g gobby-agent
 gobby
 ```
 
-On first launch, Gobby scavenges Hugging Face for its brain - a 4B parameter model that fits comfortably in ~4GB of RAM. After that, everything runs completely offline.
+On its first launch, Gobby will scavenge the Hugging Face for its brain - a tiny four-billion parameter model that fits comfortably in ~4GB of RAM. After that, everything runs completely offline.
 
-No accounts. No tokens. No configuration wizard asking you twelve questions before you can say hello. It just works.
+No accounts. No tokens. No configuration wizard asking you twelve questions before you can say hello. It just works - and _fast_.
 
 ### Completely Local
 
 Your conversations, your files, your code - none of it leaves your machine. Ever.
 
-Gobby runs inference directly on your hardware via `node-llama-cpp`. When you walk away, it unloads the model from memory to give your RAM back. When you come back, it picks up right where you left off - as if it never left. 
+Gobby runs inference directly on your hardware. When you walk away, it unloads the model from memory to give your RAM back. When you come back, it picks up right where you left off - as if it never left.
 
 No telemetry. No analytics. No "we take your privacy seriously" blog post that means the opposite. The network cable could be unplugged and Gobby would not even notice.
-
-And Apple Silicon runs this beautifully.
 
 ### Batteries Included
 
@@ -45,9 +47,9 @@ Gobby is not a chatbot. It's an agent with (tiny) hands. Out of the box, it can:
 
 - **Run shell commands:** Safe commands like `git status`, `npm test`, and `ls` run automatically. Anything spicy requires your explicit confirmation. Anything truly unhinged (like nuking your hard drive) is hard-blocked.
 
-- **Browse web:** Fetch raw URLs or read web pages as clean Markdown. Documentation, APIs, Stack Overflow - it can go get what it needs, but *only* when you ask to.
+- **Browse web:** Fetch raw URLs or read web pages as clean Markdown. Documentation, APIs, Stack Overflow - it can go get what it needs, but _only_ when you ask to.
 
-- **Remember things:**  Persistent memory across sessions. Tell it your name, your preferences, your project conventions. It writes them down and carries them forward.
+- **Remember things:** Persistent memory across sessions. Tell it your name, your preferences, your project conventions. It writes them down and carries them forward.
 
 ### Terminal Friendly
 
@@ -80,7 +82,7 @@ Pull requests are always welcome!
 
 Gobby is open-source under the MIT license. That means you can do whatever you want - with no complaints. You can even turn it into your own abuse goblin (please, don't do this).
 
-*Signed by Gobby, your mischievous gremlin assistant.*
+_Signed by Gobby, your mischievous gremlin assistant._
 
 [typescript-badge]: https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg
 [typescript-url]: http://www.typescriptlang.org/
