@@ -66,10 +66,14 @@ export class Agent extends EventEmitter<AgentEvents> {
 	private functions?: Record<string, AgentFunction>;
 	private idleTimer?: ReturnType<typeof setTimeout>;
 
-	constructor({ config, functions }: AgentOptions) {
+	/**
+	 * @param opts.config Agent config container.
+	 * @param opts.functions Agent functions (tools).
+	 */
+	constructor(opts: AgentOptions) {
 		super();
-		this.functions = functions;
-		this.config = config;
+		this.functions = opts.functions;
+		this.config = opts.config;
 		this.logger = new Logger({
 			path: this.config.logsPath,
 		});
@@ -179,16 +183,17 @@ export class Agent extends EventEmitter<AgentEvents> {
 	}
 
 	/**
-	 * Prompts the agent.
-	 * @param prompt - Target prompt.
-	 * @returns Prompt result.
+	 * Prompts agent model.
+	 * @remarks Loads model if it's not ready yet.
+	 * @param prompt.text - Prompt text.
+	 * @param prompt.signal - Abort signal for prompt processing.
+	 * @param prompt.onFunctionCall - Handler for function calling streaming.
+	 * @param prompt.onTextChunk - Handler for text chunk streaming.
+	 * @returns Model response.
 	 */
 	public async prompt(prompt: ModelPrompt) {
 		this.clearIdleTimer();
 		try {
-			if (!this.loadedModel) {
-				await this.load();
-			}
 			if (this.loadedModel && !this.loadedModel.loaded) {
 				this.emit('idleReload');
 				await this.loadedModel.load();

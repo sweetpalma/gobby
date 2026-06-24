@@ -1,16 +1,14 @@
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { Writable } from 'node:stream';
 import { Mutex } from 'es-toolkit';
 import {
-	getLlama,
-	defineChatSessionFunction,
 	LlamaChatSession,
 	LlamaLogLevel,
 	ChatHistoryItem,
 	GbnfJsonSchema,
 	GbnfJsonSchemaToType,
+	getLlama,
 } from 'node-llama-cpp';
 
 /**
@@ -30,7 +28,6 @@ export interface ModelOptions {
  */
 export interface ModelPrompt {
 	text: string;
-	skipHistory?: boolean;
 	signal?: AbortSignal;
 	onFunctionCall?: (name: string, args: unknown) => void;
 	onTextChunk?: (chunk: string) => void;
@@ -42,6 +39,11 @@ export interface ModelPrompt {
 export interface ModelResponse {
 	text: string;
 }
+
+/**
+ * Model History.
+ */
+export type ModelHistory = Array<ChatHistoryItem>;
 
 /**
  * Model Function.
@@ -82,38 +84,37 @@ export class ModelAbort extends Error {
  * Model Container.
  */
 export class Model {
-	private loadedSession?: LlamaChatSession;
-	private sessionHistory?: Array<ChatHistoryItem>;
+	private session: LlamaChatSession | null = null;
+	private history: ModelHistory = [];
 	private sessionMutex = new Mutex();
 
+	/**
+	 * @param opts.path - Model path.
+	 * @param opts.cachePath - Startup cache path (optional).
+	 * @param opts.functions - Model functions (optional).
+	 * @param opts.systemPrompt - Model system prompt (optional).
+	 * @param opts.temperature - Model temperature.
+	 * @param opts.contextSize - Model context size.
+	 */
 	constructor(private opts: ModelOptions) {
 		return;
 	}
 
 	/**
-	 * Defines a new agent function and returns it.
+	 * Defines a new model function and returns it.
+	 * @param fn.description - Function description (used by LLM).
+	 * @param fn.params - Function parameters.
+	 * @param fn.handler - Function handler.
 	 */
-	public static function(def: ModelFunction) {
-		return defineChatSessionFunction(def) as ModelFunction;
+	public static function<T extends ModelFunctionParamSchema>(fn: ModelFunction<T>) {
+		return fn;
 	}
 
 	/**
 	 * Model status.
 	 */
 	public get loaded() {
-		return !!this.loadedSession;
-	}
-
-	/**
-	 * Model session.
-	 * @remarks Throws ReferenceError if model is not loaded.
-	 */
-	public get session() {
-		if (!this.loadedSession) {
-			throw new ReferenceError('Session is not loaded.');
-		} else {
-			return this.loadedSession;
-		}
+		return !!this.session;
 	}
 
 	/**
@@ -128,27 +129,44 @@ export class Model {
 	 */
 	public set systemPrompt(systemPrompt: string | undefined) {
 		this.opts.systemPrompt = systemPrompt;
-		if (!this.loaded) {
+		if (!this.session) {
 			return;
 		}
-		const history = this.session.getChatHistory();
-		const systemPromptItem = history.find((item) => {
+		const history = this.getHistory();
+		const initialPrompt = history.find((item) => {
 			return item.type === 'system';
 		});
-		if (systemPromptItem) {
-			systemPromptItem.text = systemPrompt ?? '';
-			this.session.setChatHistory(history);
+		if (initialPrompt) {
+			initialPrompt.text = systemPrompt ?? '';
+			this.setHistory(history);
 		}
 	}
 
 	/**
+	 * Gets current history.
+	 * @returns History copy.
+	 */
+	public getHistory() {
+		return structuredClone(this.history);
+	}
+
+	/**
+	 * Sets current history.
+	 * @returns History copy.
+	 */
+	public setHistory(history: ModelHistory) {
+		this.history = structuredClone(history);
+		this.session?.setChatHistory(structuredClone(history));
+	}
+
+	/**
 	 * Loads model into the memory.
-	 * @remarks Disposed model retains chat history, so it could be resumed after calling the `load` method.
+	 * @remarks Does nothing if session is already loaded.
 	 */
 	public async load() {
 		await this.sessionMutex.acquire();
 		try {
-			if (this.loadedSession) {
+			if (this.session) {
 				return;
 			}
 			const llama = await getLlama({
@@ -161,12 +179,14 @@ export class Model {
 				contextSize: this.opts.contextSize,
 				flashAttention: true,
 			});
-			this.loadedSession = new LlamaChatSession({
+			this.session = new LlamaChatSession({
 				contextSequence: context.getSequence(),
 				systemPrompt: this.opts.systemPrompt,
 			});
-			if (this.sessionHistory) {
-				this.loadedSession.setChatHistory(this.sessionHistory);
+			if (this.history.length === 0) {
+				this.history = structuredClone(this.session.getChatHistory());
+			} else {
+				this.session.setChatHistory(this.history);
 			}
 			if (this.opts.cachePath) {
 				await this.useStartupCache(this.opts.cachePath);
@@ -178,47 +198,61 @@ export class Model {
 
 	/**
 	 * Disposes resources.
+	 * @remarks Disposed model retains chat history, so it could be resumed after calling the `load` method.
 	 */
 	public async dispose() {
 		await this.sessionMutex.acquire();
 		try {
-			if (!this.loadedSession) {
+			if (!this.session) {
 				return;
 			}
 			// Dependant objects are also disposed:
 			// https://node-llama-cpp.withcat.ai/guide/objects-lifecycle#llama-instances
-			this.sessionHistory = this.session.getChatHistory();
-			await this.loadedSession.model.llama.dispose();
-			this.loadedSession = undefined;
+			await this.session.model.llama.dispose();
+			this.session = null;
 		} finally {
 			this.sessionMutex.release();
 		}
 	}
 
 	/**
-	 * Prompts loaded model.
+	 * Prompts model.
+	 * @remarks Loads model if it's not ready yet.
+	 * @param prompt.text - Prompt text.
+	 * @param prompt.signal - Abort signal for prompt processing.
+	 * @param prompt.onFunctionCall - Handler for function calling streaming.
+	 * @param prompt.onTextChunk - Handler for text chunk streaming.
+	 * @returns Model response.
 	 */
 	public async prompt(prompt: ModelPrompt) {
-		const infer = async (): Promise<ModelResponse> => {
-			const history = this.session.getChatHistory();
+		const waitForAbortSignal = async (): Promise<never> => {
+			if (prompt.signal?.aborted) {
+				throw new ModelAbort();
+			}
+			return new Promise((_, reject) => {
+				const abortHandler = () => reject(new ModelAbort());
+				prompt.signal?.addEventListener('abort', abortHandler, { once: true });
+			});
+		};
+		const infer = async (session: LlamaChatSession): Promise<ModelResponse> => {
 			try {
+				let functionName = '';
+				let functionArgs = '';
 				let textBuffer = '';
-				let fnArgs = '';
-				let fnName = '';
-				await this.session.prompt(prompt.text, {
+				await session.prompt(prompt.text, {
 					functions: this.opts.functions,
 					temperature: this.opts.temperature ?? 0.25,
 					signal: prompt.signal,
 					stopOnAbortSignal: true,
 					onFunctionCallParamsChunk: (chunk) => {
-						if (fnName.length === 0) {
-							fnName = chunk.functionName;
+						if (functionName.length === 0) {
+							functionName = chunk.functionName;
 						}
-						fnArgs = fnArgs + chunk.paramsChunk;
+						functionArgs = functionArgs + chunk.paramsChunk;
 						if (chunk.done) {
-							prompt.onFunctionCall?.(fnName, JSON.parse(fnArgs));
-							fnName = '';
-							fnArgs = '';
+							prompt.onFunctionCall?.(functionName, JSON.parse(functionArgs));
+							functionName = '';
+							functionArgs = '';
 						}
 					},
 					onTextChunk: (chunk) => {
@@ -231,8 +265,8 @@ export class Model {
 				};
 			} catch (err) {
 				const message = err instanceof Error ? err.message : `${err}`;
-				this.session.setChatHistory([
-					...this.session.getChatHistory(),
+				session.setChatHistory([
+					...session.getChatHistory(),
 					{
 						type: 'system',
 						text: `An error occurred: ${message}`,
@@ -240,23 +274,15 @@ export class Model {
 				]);
 				throw err;
 			} finally {
-				if (prompt.skipHistory) {
-					this.session.setChatHistory(history);
-				}
+				this.setHistory(session.getChatHistory());
 			}
 		};
-		const waitForAbortSignal = async (): Promise<never> => {
-			if (prompt.signal?.aborted) {
-				throw new ModelAbort();
-			}
-			return new Promise((_, reject) => {
-				const abortHandler = () => reject(new ModelAbort());
-				prompt.signal?.addEventListener('abort', abortHandler, { once: true });
-			});
-		};
+		if (!this.session) {
+			await this.load();
+		}
 		await this.sessionMutex.acquire();
 		try {
-			return await Promise.race([infer(), waitForAbortSignal()]);
+			return await Promise.race([infer(this.session!), waitForAbortSignal()]);
 		} finally {
 			this.sessionMutex.release();
 		}
@@ -268,6 +294,9 @@ export class Model {
 	 * @param cachePath - Cache folder path.
 	 */
 	private async useStartupCache(cachePath: string) {
+		if (!this.session) {
+			return;
+		}
 		const hashSource = {
 			systemPrompt: this.systemPrompt ?? null,
 			functions: this.opts.functions ?? null,
