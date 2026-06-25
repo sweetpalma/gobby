@@ -7,9 +7,6 @@ const ALLOWLIST = [
 	'cat',
 	'echo',
 	'find',
-	'git diff',
-	'git log',
-	'git status',
 	'grep',
 	'head',
 	'ls',
@@ -20,6 +17,15 @@ const ALLOWLIST = [
 	'tsc',
 	'wc',
 	'which',
+	'git diff',
+	'git log',
+	'git status',
+	'git rev-parse',
+	'git rev-list',
+	'git describe',
+	'git tag',
+	'git branch',
+	'git show',
 ];
 
 // Commands containing these substrings are hard-blocked.
@@ -36,6 +42,18 @@ const BLOCKLIST = [
 	'curl | sh',
 ];
 
+// Shell metacharacters that indicate compound commands.
+// The model is instructed not to use these, but small models ignore that rule.
+// We enforce it here so the model gets a clear error and can self-correct.
+const COMPOUND_PATTERNS = [
+	{ pattern: /\|/, label: 'piping (|)' },
+	{ pattern: /\$\(/, label: 'subshell expansion $()' },
+	{ pattern: /`[^`]+`/, label: 'backtick subshell' },
+	{ pattern: /&&/, label: 'command chaining (&&)' },
+	{ pattern: /\|\|/, label: 'conditional chaining (||)' },
+	{ pattern: /;/, label: 'command sequencing (;)' },
+];
+
 const isAllowlisted = (command: string) => {
 	return ALLOWLIST.some(
 		(prefix) => command === prefix || command.startsWith(prefix + ' '),
@@ -44,6 +62,10 @@ const isAllowlisted = (command: string) => {
 
 const isBlocklisted = (command: string) => {
 	return BLOCKLIST.some((blocked) => command.includes(blocked));
+};
+
+const getCompoundViolation = (command: string) => {
+	return COMPOUND_PATTERNS.find(({ pattern }) => pattern.test(command));
 };
 
 export const shellExecute = Agent.function({
@@ -68,6 +90,12 @@ export const shellExecute = Agent.function({
 		const trimmedCommand = command.trim();
 		if (!trimmedCommand) {
 			return { error: 'Command cannot be empty.' };
+		}
+		const violation = getCompoundViolation(trimmedCommand);
+		if (violation) {
+			return {
+				error: `Compound commands are not allowed: detected ${violation.label}. Call "shellExecute" once per simple command and combine the results yourself.`,
+			};
 		}
 		if (isBlocklisted(trimmedCommand)) {
 			return {

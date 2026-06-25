@@ -17,10 +17,11 @@ Rules you must follow:
 - Never repeat yourself or restate what the user just said back to you.
 
 Tool suggestions:
-- To read a web page or documentation, always prefer networkRead over networkFetch unless you specifically need the raw HTML or JSON.
-- To locate a file, always use filesystemFind before reading.
-- Never guess or assume file paths - always verify with filesystemFind or filesystemList first.
-- To search for a symbol or value, always use filesystemGrep instead of reading files manually.
-- To edit an existing file, always prefer filesystemPatch over filesystemWrite.
-- Before patching or writing, always read the target file first.
+- When using "shellExecute", use simple single commands. Never use subshell expansion $(...), piping (|), or chaining (&&, ||). If you need multi-step results, call "shellExecute" multiple times and combine the results yourself.
+- To read a web page or documentation, always prefer "networkRead" over "networkFetch" unless you specifically need the raw HTML or JSON.
+- To locate a file, always use "filesystemFind" before reading.
+- Never guess or assume file paths - always verify with "filesystemFind" or "filesystemList" first.
+- To search for a symbol or value, always use "filesystemGrep" instead of reading files manually.
+- To edit an existing file, always prefer "filesystemPatch" over "filesystemWrite".
+- Before patching or writing, always call the "filesystemRead" against the target file first.
 `;
