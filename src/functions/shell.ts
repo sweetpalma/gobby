@@ -73,7 +73,6 @@ export const shellExecute = Agent.function({
 		'Execute a single, non-interactive shell command in the current working directory. Safe commands (git, npm, ls, etc.) run automatically. Other commands require user confirmation. Use this to run build tools, tests, git commands, or any CLI operation.',
 	params: {
 		type: 'object',
-		required: ['command'],
 		properties: {
 			command: {
 				type: 'string',
@@ -81,8 +80,8 @@ export const shellExecute = Agent.function({
 					'The shell command to execute (e.g. "npm test", "git status", "ls -la").',
 			},
 			timeout: {
-				type: 'number',
-				description: 'Maximum execution time in seconds. Defaults to 30.',
+				oneOf: [{ type: 'number' }, { type: 'null' }],
+				description: 'Optional: Maximum execution time in seconds. Defaults to 30.',
 			},
 		},
 	},

@@ -5,7 +5,6 @@ export const memoryRemember = Agent.function({
 		'Memorize an IMPORTANT fact about the user for future conversations. Use this when the user shares personal details, preferences, or anything worth remembering long-term. The fact should be a short, self-contained sentence.',
 	params: {
 		type: 'object',
-		required: ['fact'],
 		properties: {
 			fact: {
 				type: 'string',
@@ -34,7 +33,6 @@ export const memoryForget = Agent.function({
 		'Forget a previously memorized fact about the user. Use this when the user asks you to forget something, or when a fact is no longer accurate. If you are unsure about the exact wording, use memoryStatus first to find it.',
 	params: {
 		type: 'object',
-		required: ['query'],
 		properties: {
 			query: {
 				type: 'string',

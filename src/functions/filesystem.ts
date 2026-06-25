@@ -29,7 +29,6 @@ export const filesystemList = Agent.function({
 		'List all files and directories in a specified folder path. Only paths inside the current working directory are allowed.',
 	params: {
 		type: 'object',
-		required: ['path'],
 		properties: {
 			path: {
 				type: 'string',
@@ -84,7 +83,6 @@ export const filesystemRead = Agent.function({
 		'Read the contents of a file at the specified path (as UTF-8 text). Only paths inside the current working directory are allowed.',
 	params: {
 		type: 'object',
-		required: ['path'],
 		properties: {
 			path: {
 				type: 'string',
@@ -92,8 +90,8 @@ export const filesystemRead = Agent.function({
 					'The path of the file to read (relative to the current working directory or absolute).',
 			},
 			maxSize: {
-				type: 'number',
-				description: 'Maximum allowed read size. Defaults to 16384 bytes.',
+				oneOf: [{ type: 'number' }, { type: 'null' }],
+				description: 'Optional: Maximum allowed read size. Defaults to 16384.',
 			},
 		},
 	},
@@ -130,7 +128,6 @@ export const filesystemWrite = Agent.function({
 		'Write text content to a file at the specified path, creating it (and any missing parent directories) if it does not exist, or overwriting it if it does. Only paths inside the current working directory are allowed.',
 	params: {
 		type: 'object',
-		required: ['path', 'content'],
 		properties: {
 			path: {
 				type: 'string',
@@ -170,7 +167,6 @@ export const filesystemDelete = Agent.function({
 		'Delete a file or directory at the specified path. Directories are deleted recursively. Only paths inside the current working directory are allowed.',
 	params: {
 		type: 'object',
-		required: ['path'],
 		properties: {
 			path: {
 				type: 'string',
@@ -210,7 +206,6 @@ export const filesystemPatch = Agent.function({
 		'Surgically edit a file by finding a string and replacing it with new content. Uses fuzzy matching, so the search string does not need to perfectly match whitespace and indentation. Only paths inside the current working directory are allowed.',
 	params: {
 		type: 'object',
-		required: ['path', 'search', 'replace'],
 		properties: {
 			path: {
 				type: 'string',
@@ -266,7 +261,6 @@ export const filesystemFind = Agent.function({
 		'Find files and directories matching a glob pattern within the current working directory. Use this to locate files before reading or patching them.',
 	params: {
 		type: 'object',
-		required: ['pattern'],
 		properties: {
 			pattern: {
 				type: 'string',
@@ -274,8 +268,8 @@ export const filesystemFind = Agent.function({
 					'Glob pattern to match (e.g. "**/*.ts", "src/**", "*.json"). Always scoped to the current working directory.',
 			},
 			limit: {
-				type: 'number',
-				description: 'Search result limit. Equals to 100 by default.',
+				oneOf: [{ type: 'number' }, { type: 'null' }],
+				description: 'Optional: Search result limit. Defaults to 100.',
 			},
 		},
 	},
@@ -307,24 +301,23 @@ export const filesystemGrep = Agent.function({
 		'Search file contents for a text string across the current working directory. Returns matching lines with their file path and line number. Use this instead of reading multiple files when looking for a specific symbol, value, or pattern.',
 	params: {
 		type: 'object',
-		required: ['query'],
 		properties: {
 			query: {
 				type: 'string',
 				description: 'The text string to search for inside file contents.',
 			},
 			pattern: {
-				type: 'string',
+				oneOf: [{ type: 'string' }, { type: 'null' }],
 				description:
-					'Optional glob pattern to limit which files are searched (e.g. "**/*.ts"). Defaults to all files.',
+					'Optional: Glob pattern to limit which files are searched (e.g. "**/*.ts"). Defaults to all files.',
 			},
 			caseSensitive: {
-				type: 'boolean',
-				description: 'Whether the match is case-sensitive. Disabled by default.',
+				oneOf: [{ type: 'boolean' }, { type: 'null' }],
+				description: 'Optional: Whether the match is case-sensitive. Defaults to false.',
 			},
 			limit: {
-				type: 'number',
-				description: 'Search result limit. Equals to 50 by default.',
+				oneOf: [{ type: 'number' }, { type: 'null' }],
+				description: 'Optional: Search result limit. Defaults to 50.',
 			},
 		},
 	},

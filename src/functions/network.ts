@@ -5,7 +5,6 @@ export const networkFetch = Agent.function({
 		'Fetch the raw content of a URL using a standard HTTP GET request. Returns the exact text response (e.g., raw HTML, JSON). Use this for APIs or when you explicitly need the raw source. For reading human-facing web pages or documentation, use httpRead instead.',
 	params: {
 		type: 'object',
-		required: ['url'],
 		properties: {
 			url: {
 				type: 'string',
@@ -49,7 +48,6 @@ export const networkRead = Agent.function({
 		'Read and extract the main content of a web page by its URL. Uses a reader service that renders JavaScript and returns clean Markdown (stripping ads, navbars, and boilerplate). ALWAYS PREFER this over httpFetch for documentation, articles, and general web browsing.',
 	params: {
 		type: 'object',
-		required: ['url'],
 		properties: {
 			url: {
 				type: 'string',
