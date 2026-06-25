@@ -62,7 +62,7 @@ export class Memory {
 			return;
 		}
 		this.facts.push(trimmed);
-		if (this.length >= this.lengthLimit) {
+		if (this.length > this.lengthLimit) {
 			this.facts.pop();
 			throw new MemoryError('Fact is too big to remember.');
 		}
