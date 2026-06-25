@@ -47,12 +47,13 @@ export type ModelHistory = Array<ChatHistoryItem>;
 
 /**
  * Model Function.
- * @remarks Parameters use GBNF JSON format schema.
+ * @typeParam P - Handler params.
+ * @typeParam R - Handler return type.
  */
-export interface ModelFunction<T extends ModelFunctionParamSchema = any> {
+export interface ModelFunction<P extends ModelFunctionParamSchema = any, R = any> {
 	description: string;
-	params: T;
-	handler: (params: ModelFunctionParamSchemaToType<T>) => unknown;
+	params: P;
+	handler: (params: ModelFunctionParamSchemaToType<P>) => R;
 }
 
 /**
@@ -106,7 +107,7 @@ export class Model {
 	 * @param fn.params - Function parameters.
 	 * @param fn.handler - Function handler.
 	 */
-	public static function<T extends ModelFunctionParamSchema>(fn: ModelFunction<T>) {
+	public static function<P extends ModelFunctionParamSchema, R>(fn: ModelFunction<P, R>) {
 		return fn;
 	}
 

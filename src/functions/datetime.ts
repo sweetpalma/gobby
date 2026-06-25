@@ -1,12 +1,12 @@
 import { Agent } from '../agent';
 
 export const datetime = Agent.function({
-	description: 'Get the current local date and time.',
+	description: 'Get the current local time and date.',
 	params: {
 		type: 'object',
 		properties: {},
 	},
-	handler: async () => {
+	handler: () => {
 		const now = new Date();
 		return {
 			iso: now.toISOString(),

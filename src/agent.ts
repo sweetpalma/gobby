@@ -16,13 +16,15 @@ import {
 } from './model';
 
 /**
- * Agent Function.
+ * Model Function.
  * @remarks Mostly same as Model Function, but carries an agent reference as a second parameter.
+ * @typeParam P - Handler params.
+ * @typeParam R - Handler return type.
  */
-export interface AgentFunction<T extends ModelFunctionParamSchema = any> {
+export interface AgentFunction<P extends ModelFunctionParamSchema = any, R = any> {
 	description: string;
-	params: T;
-	handler: (params: ModelFunctionParamSchemaToType<T>, agent: Agent) => unknown;
+	params: P;
+	handler: (params: ModelFunctionParamSchemaToType<P>, agent: Agent) => R;
 }
 
 /**
@@ -87,8 +89,8 @@ export class Agent extends EventEmitter<AgentEvents> {
 	/**
 	 * Defines a new agent function and returns it.
 	 */
-	public static function<T extends ModelFunctionParamSchema>(def: AgentFunction<T>) {
-		return def;
+	public static function<P extends ModelFunctionParamSchema, R>(fn: AgentFunction<P, R>) {
+		return fn;
 	}
 
 	/**

@@ -1,3 +1,4 @@
 npx --no-install lint-staged
 npm run format-check
-npm run typecheck
+npm run build
+npm run test
