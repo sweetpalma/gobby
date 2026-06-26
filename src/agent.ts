@@ -13,18 +13,25 @@ import {
 	ModelAbort,
 	ModelFunctionParamSchema,
 	ModelFunctionParamSchemaToType,
+	ModelFunction,
 } from './model';
 
 /**
  * Model Function.
  * @remarks Mostly same as Model Function, but carries an agent reference as a second parameter.
- * @typeParam P - Handler params.
- * @typeParam R - Handler return type.
+ * @typeParam Parameters - Handler paramseters.
+ * @typeParam ReturnType - Handler return type.
  */
-export interface AgentFunction<P extends ModelFunctionParamSchema = any, R = any> {
+export interface AgentFunction<
+	Parameters extends ModelFunctionParamSchema = any,
+	ReturnType = any,
+> {
 	description: string;
-	params: P;
-	handler: (params: ModelFunctionParamSchemaToType<P>, agent: Agent) => R;
+	params: Parameters;
+	handler: (
+		params: ModelFunctionParamSchemaToType<Parameters>,
+		agent: Agent,
+	) => ReturnType;
 }
 
 /**
@@ -32,7 +39,7 @@ export interface AgentFunction<P extends ModelFunctionParamSchema = any, R = any
  */
 export interface AgentOptions {
 	config: Config;
-	functions: Record<string, AgentFunction>;
+	functions?: Record<string, AgentFunction>;
 }
 
 /**
@@ -64,9 +71,9 @@ export const AgentAbort = ModelAbort;
  * Agent Container.
  */
 export class Agent extends EventEmitter<AgentEvents> {
-	private loadedModel?: Model;
-	private functions?: Record<string, AgentFunction>;
-	private idleTimer?: ReturnType<typeof setTimeout>;
+	private model: Model | null = null;
+	private idleTimer: ReturnType<typeof setTimeout> | null = null;
+	private functions: Record<string, ModelFunction>;
 
 	/**
 	 * @param opts.config Agent config container.
@@ -74,7 +81,6 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 */
 	constructor(opts: AgentOptions) {
 		super();
-		this.functions = opts.functions;
 		this.config = opts.config;
 		this.logger = new Logger({
 			path: this.config.logsPath,
@@ -84,12 +90,23 @@ export class Agent extends EventEmitter<AgentEvents> {
 			path: this.config.memoryPath,
 			lengthLimit: this.config.get('memorySize'),
 		});
+		this.functions = mapValues(opts.functions ?? {}, (fn) => {
+			return Model.function({
+				...fn,
+				handler: (params) => fn.handler(params, this),
+			});
+		});
 	}
 
 	/**
 	 * Defines a new agent function and returns it.
+	 * @param fn.description - Function description (used by LLM).
+	 * @param fn.params - Function parameters.
+	 * @param fn.handler - Function handler.
 	 */
-	public static function<P extends ModelFunctionParamSchema, R>(fn: AgentFunction<P, R>) {
+	public static function<Parameters extends ModelFunctionParamSchema, ReturnType>(
+		fn: AgentFunction<Parameters, ReturnType>,
+	) {
 		return fn;
 	}
 
@@ -109,22 +126,10 @@ export class Agent extends EventEmitter<AgentEvents> {
 	public readonly logger: Logger;
 
 	/**
-	 * Agent loaded model status.
+	 * Agent model status.
 	 */
 	public get loaded() {
-		return !!this.loadedModel?.loaded;
-	}
-
-	/**
-	 * Agent loaded model.
-	 * @remarks Throws Reference error if model is not loaded.
-	 */
-	public get model() {
-		if (!this.loadedModel || !this.loadedModel.loaded) {
-			throw new ReferenceError('Model is not loaded.');
-		} else {
-			return this.loadedModel;
-		}
+		return this.model && this.model.loaded;
 	}
 
 	/**
@@ -136,6 +141,19 @@ export class Agent extends EventEmitter<AgentEvents> {
 		}
 		const memory = '\nYou remember the following:\n' + this.memory.format();
 		return (SYSTEM_PROMPT + memory).trim();
+	}
+
+	/**
+	 * Resets agent memory and conversation history without unloading the model.
+	 * @remarks Useful for E2E testing routines.
+	 * @internal
+	 */
+	public reset() {
+		this.memory.reset();
+		if (this.model) {
+			this.model.systemPrompt = this.systemPrompt;
+			this.model.resetHistory();
+		}
 	}
 
 	/**
@@ -161,32 +179,32 @@ export class Agent extends EventEmitter<AgentEvents> {
 			onComplete: () => this.emit('downloadComplete'),
 		});
 		this.emit('load');
-		this.loadedModel = new Model({
+		this.model = new Model({
 			path,
 			systemPrompt: this.systemPrompt,
-			cachePath: this.config.cachePath,
 			temperature: this.config.get('temperature'),
 			contextSize: this.config.get('contextSize'),
-			functions: this.getFunctionsWithContext(),
+			functions: this.functions,
 		});
-		await this.loadedModel.load();
+		await this.model.load();
+		await this.model.loadCache(this.config.cachePath);
 		this.emit('loadComplete');
 		this.resetIdleTimer();
 	}
 
 	/**
-	 * Disposes the agent model.
+	 * Disposes of loaded resources.
+	 * @remarks Chat history is retained and it may be continued later.
 	 */
 	public async dispose() {
 		this.clearIdleTimer();
-		if (this.loadedModel) {
-			await this.loadedModel.dispose();
+		if (this.model) {
+			await this.model.dispose();
 		}
 	}
 
 	/**
 	 * Prompts agent model.
-	 * @remarks Loads model if it's not ready yet.
 	 * @param prompt.text - Prompt text.
 	 * @param prompt.signal - Abort signal for prompt processing.
 	 * @param prompt.onFunctionCall - Handler for function calling streaming.
@@ -196,9 +214,13 @@ export class Agent extends EventEmitter<AgentEvents> {
 	public async prompt(prompt: ModelPrompt) {
 		this.clearIdleTimer();
 		try {
-			if (this.loadedModel && !this.loadedModel.loaded) {
+			if (!this.model) {
+				throw new ReferenceError('Agent was not initialised.');
+			}
+			if (!this.model.loaded) {
 				this.emit('idleReload');
-				await this.loadedModel.load();
+				await this.model.load();
+				await this.model.loadCache(this.config.cachePath);
 			}
 			this.emit('prompt', prompt);
 			this.model.systemPrompt = this.systemPrompt;
@@ -235,22 +257,6 @@ export class Agent extends EventEmitter<AgentEvents> {
 	}
 
 	/**
-	 * Gets agent functions, bound to the current instance.
-	 * @private
-	 */
-	private getFunctionsWithContext() {
-		if (!this.functions) {
-			return {};
-		}
-		return mapValues(this.functions, (fn) => {
-			return Model.function({
-				...fn,
-				handler: (params) => fn.handler(params, this),
-			});
-		});
-	}
-
-	/**
 	 * Resets the idle timer. When it fires, the model is disposed to free memory.
 	 * @private
 	 */
@@ -261,14 +267,13 @@ export class Agent extends EventEmitter<AgentEvents> {
 			return;
 		}
 		this.idleTimer = setTimeout(async () => {
-			if (!this.loadedModel?.loaded) {
-				return;
-			}
-			try {
-				this.emit('idle');
-				await this.loadedModel.dispose();
-			} catch (err) {
-				this.emit('idleError', err);
+			if (this.model && this.model.loaded) {
+				try {
+					this.emit('idle');
+					await this.model.dispose();
+				} catch (err) {
+					this.emit('idleError', err);
+				}
 			}
 		}, millisecondTimeout);
 		this.idleTimer.unref();
@@ -281,7 +286,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 	private clearIdleTimer() {
 		if (this.idleTimer) {
 			clearTimeout(this.idleTimer);
-			this.idleTimer = undefined;
+			this.idleTimer = null;
 		}
 	}
 

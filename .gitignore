@@ -31,6 +31,5 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Hugging Face
-models/
-.cache/
+# E2E tests workspace 
+/e2e_workspace

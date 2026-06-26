@@ -47,13 +47,11 @@ export interface ConfigOptions {
  * Config Container.
  */
 export class Config {
-	private params: ConfigSchema = {
-		...CONFIG_DEFAULTS,
-	};
+	private params: ConfigSchema;
 
 	constructor(opts: ConfigOptions) {
 		this.workspace = opts.workspace;
-		Object.assign(this.params, opts.params ?? {});
+		this.params = structuredClone({ ...CONFIG_DEFAULTS, ...opts.params });
 	}
 
 	/**
@@ -116,6 +114,13 @@ export class Config {
 			const msg = zod.prettifyError(error);
 			throw new Error(msg);
 		}
+	}
+
+	/**
+	 * Resets config to default values.
+	 */
+	public reset() {
+		this.params = structuredClone(CONFIG_DEFAULTS);
 	}
 
 	/**

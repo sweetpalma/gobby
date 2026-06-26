@@ -16,7 +16,6 @@ import {
  */
 export interface ModelOptions {
 	path: string;
-	cachePath?: string;
 	functions?: Record<string, ModelFunction>;
 	systemPrompt?: string;
 	temperature?: number;
@@ -47,13 +46,16 @@ export type ModelHistory = Array<ChatHistoryItem>;
 
 /**
  * Model Function.
- * @typeParam P - Handler params.
- * @typeParam R - Handler return type.
+ * @typeParam Parameters - Handler paramseters.
+ * @typeParam ReturnType - Handler return type.
  */
-export interface ModelFunction<P extends ModelFunctionParamSchema = any, R = any> {
+export interface ModelFunction<
+	Parameters extends ModelFunctionParamSchema = any,
+	ReturnType = any,
+> {
 	description: string;
-	params: P;
-	handler: (params: ModelFunctionParamSchemaToType<P>) => R;
+	params: Parameters;
+	handler: (params: ModelFunctionParamSchemaToType<Parameters>) => ReturnType;
 }
 
 /**
@@ -68,8 +70,8 @@ export type ModelFunctionParamSchema = GbnfJsonSchema;
  * @remarks Parameters use GBNF JSON format schema.
  * @internal
  */
-export type ModelFunctionParamSchemaToType<T extends ModelFunctionParamSchema> =
-	GbnfJsonSchemaToType<T>;
+export type ModelFunctionParamSchemaToType<Parameters extends ModelFunctionParamSchema> =
+	GbnfJsonSchemaToType<Parameters>;
 
 /**
  * Model Abort Signal.
@@ -107,7 +109,9 @@ export class Model {
 	 * @param fn.params - Function parameters.
 	 * @param fn.handler - Function handler.
 	 */
-	public static function<P extends ModelFunctionParamSchema, R>(fn: ModelFunction<P, R>) {
+	public static function<Parameters extends ModelFunctionParamSchema, ReturnType>(
+		fn: ModelFunction<Parameters, ReturnType>,
+	) {
 		return fn;
 	}
 
@@ -115,7 +119,7 @@ export class Model {
 	 * Model status.
 	 */
 	public get loaded() {
-		return !!this.session;
+		return this.session && !this.session.disposed;
 	}
 
 	/**
@@ -144,7 +148,19 @@ export class Model {
 	}
 
 	/**
-	 * Gets current history.
+	 * Resets chat history.
+	 */
+	public resetHistory() {
+		if (!this.session) {
+			this.history = [];
+		} else {
+			this.session.resetChatHistory();
+			this.history = this.session.getChatHistory();
+		}
+	}
+
+	/**
+	 * Gets chat history.
 	 * @returns History copy.
 	 */
 	public getHistory() {
@@ -152,7 +168,7 @@ export class Model {
 	}
 
 	/**
-	 * Sets current history.
+	 * Sets chat history.
 	 * @returns History copy.
 	 */
 	public setHistory(history: ModelHistory) {
@@ -162,12 +178,12 @@ export class Model {
 
 	/**
 	 * Loads model into the memory.
-	 * @remarks Does nothing if session is already loaded.
+	 * @remarks Does nothing if model is already loaded.
 	 */
 	public async load() {
 		await this.sessionMutex.acquire();
 		try {
-			if (this.session) {
+			if (this.session && !this.session.disposed) {
 				return;
 			}
 			const llama = await getLlama({
@@ -189,28 +205,58 @@ export class Model {
 			} else {
 				this.session.setChatHistory(this.history);
 			}
-			if (this.opts.cachePath) {
-				await this.useStartupCache(this.opts.cachePath);
-			}
 		} finally {
 			this.sessionMutex.release();
 		}
 	}
 
 	/**
-	 * Disposes resources.
-	 * @remarks Disposed model retains chat history, so it could be resumed after calling the `load` method.
+	 * Loads a startup cache or creates a new if it's corrupt or missing.
+	 * @remarks Calling this method speeds up the initial prompt time by 5x on average.
+	 * @param cachePath - Cache folder path.
+	 */
+	public async loadCache(cachePath: string) {
+		if (!this.session) {
+			return;
+		}
+		const hashSource = {
+			systemPrompt: this.systemPrompt ?? null,
+			functions: this.opts.functions ?? null,
+		};
+		const hashPath = join(cachePath, 'hash.txt');
+		const dataPath = join(cachePath, 'data.bin');
+		const savedHash = await readFile(hashPath, 'utf-8').catch(() => null);
+		const freshHash = createHash('sha256')
+			.update(JSON.stringify(hashSource))
+			.digest('hex');
+		try {
+			if (savedHash !== freshHash) {
+				throw new Error('System prompt changed, rebuilding...');
+			}
+			await this.session.sequence.loadStateFromFile(dataPath, { acceptRisk: true });
+		} catch {
+			// Changing model or context size would make loading throw and error.
+			// That's completely expected, thus we could catch it and rebuild our cache.
+			await mkdir(cachePath, { recursive: true });
+			await this.session.preloadPrompt('', { functions: this.opts.functions });
+			await this.session.sequence.saveStateToFile(dataPath);
+			await writeFile(hashPath, freshHash);
+		}
+	}
+
+	/**
+	 * Disposes of loaded resources.
+	 * @remarks Chat history is retained and it may be continued later.
 	 */
 	public async dispose() {
 		await this.sessionMutex.acquire();
 		try {
-			if (!this.session) {
+			if (!this.session || this.session.disposed) {
 				return;
 			}
 			// Dependant objects are also disposed:
 			// https://node-llama-cpp.withcat.ai/guide/objects-lifecycle#llama-instances
 			await this.session.model.llama.dispose();
-			this.session = null;
 		} finally {
 			this.sessionMutex.release();
 		}
@@ -218,7 +264,6 @@ export class Model {
 
 	/**
 	 * Prompts model.
-	 * @remarks Loads model if it's not ready yet.
 	 * @param prompt.text - Prompt text.
 	 * @param prompt.signal - Abort signal for prompt processing.
 	 * @param prompt.onFunctionCall - Handler for function calling streaming.
@@ -279,47 +324,13 @@ export class Model {
 			}
 		};
 		if (!this.session) {
-			await this.load();
+			throw new ReferenceError('Model was not initialised.');
 		}
 		await this.sessionMutex.acquire();
 		try {
-			return await Promise.race([infer(this.session!), waitForAbortSignal()]);
+			return await Promise.race([infer(this.session), waitForAbortSignal()]);
 		} finally {
 			this.sessionMutex.release();
-		}
-	}
-
-	/**
-	 * Tries to load a startup cache or creates a new if it's corrupt or missing.
-	 * @remarks Implementing this method sped up the loading time by 5x on average.
-	 * @param cachePath - Cache folder path.
-	 */
-	private async useStartupCache(cachePath: string) {
-		if (!this.session) {
-			return;
-		}
-		const hashSource = {
-			systemPrompt: this.systemPrompt ?? null,
-			functions: this.opts.functions ?? null,
-		};
-		const hashPath = join(cachePath, 'hash.txt');
-		const dataPath = join(cachePath, 'data.bin');
-		const savedHash = await readFile(hashPath, 'utf-8').catch(() => null);
-		const freshHash = createHash('sha256')
-			.update(JSON.stringify(hashSource))
-			.digest('hex');
-		try {
-			if (savedHash !== freshHash) {
-				throw new Error('System prompt changed, rebuilding...');
-			}
-			await this.session.sequence.loadStateFromFile(dataPath, { acceptRisk: true });
-		} catch {
-			// Changing model or context size would make loading throw and error.
-			// That's completely expected, thus we could catch it and rebuild our cache.
-			await mkdir(cachePath, { recursive: true });
-			await this.session.preloadPrompt('', { functions: this.opts.functions });
-			await this.session.sequence.saveStateToFile(dataPath);
-			await writeFile(hashPath, freshHash);
 		}
 	}
 }

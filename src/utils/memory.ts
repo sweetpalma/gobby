@@ -94,10 +94,17 @@ export class Memory {
 	}
 
 	/**
+	 * Resets memory.
+	 */
+	public reset() {
+		this.facts = [];
+	}
+
+	/**
 	 * Returns a copy of all stored facts.
 	 */
 	public list() {
-		return [...this.facts];
+		return structuredClone(this.facts);
 	}
 
 	/**

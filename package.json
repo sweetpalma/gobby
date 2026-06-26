@@ -35,11 +35,12 @@
 		"chat": "tsx src/index.ts",
 		"build": "npm run typecheck && npm run bundle",
 		"bundle": "esbuild src/index.ts --outdir=dist --platform=node --packages=external --format=esm --bundle",
-		"format-check": "prettier --check \"src/**/*.{ts,md,yml,json}\"",
-		"format": "prettier --write \"src/**/*.{ts,md,yml,json}\"",
+		"format-check": "prettier --check \"./**/*.{ts,md,yml,json}\"",
+		"format": "prettier --write \"./**/*.{ts,md,yml,json}\"",
 		"typecheck": "tsc --noEmit",
-		"test": "vitest run",
-		"test-watch": "vitest --watch"
+		"test": "vitest run --mode=src",
+		"test-watch": "vitest --mode=src --watch",
+		"test-e2e": "vitest run --mode=e2e"
 	},
 	"dependencies": {
 		"@huggingface/hub": "^2.13.1",
@@ -68,6 +69,7 @@
 		"lint-staged": "^17.0.8",
 		"memfs": "^4.57.8",
 		"prettier": "^3.8.3",
+		"string-comparison": "^1.3.0",
 		"tsx": "^4.22.3",
 		"typescript": "^6.0.3",
 		"vitest": "^4.1.9"

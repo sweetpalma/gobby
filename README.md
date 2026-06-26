@@ -76,6 +76,13 @@ To build a standalone CLI bundle:
 npm run build
 ```
 
+Or run tests:
+
+```bash
+npm run test
+npm run test-e2e
+```
+
 Pull requests are always welcome!
 
 ## License
