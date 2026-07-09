@@ -43,6 +43,7 @@
 		"test-e2e": "vitest run --mode=e2e"
 	},
 	"dependencies": {
+		"@commander-js/extra-typings": "^15.0.0",
 		"@huggingface/hub": "^2.13.1",
 		"@inkjs/ui": "^2.0.0",
 		"commander": "^15.0.0",
