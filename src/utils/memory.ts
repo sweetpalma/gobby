@@ -108,7 +108,7 @@ export class Memory {
 	}
 
 	/**
-	 * Formats all facts for system prompt injection.
+	 * Formats known facts into a string and returns it.
 	 * @returns Formatted string, or empty string if no facts exist.
 	 */
 	public format() {

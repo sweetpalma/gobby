@@ -117,6 +117,14 @@ export class Config {
 	}
 
 	/**
+	 * Formats agent config into a YAML string and returns it.
+	 * @returns Formatted config.
+	 */
+	public format() {
+		return yml.stringify(this.params);
+	}
+
+	/**
 	 * Resets config to default values.
 	 */
 	public reset() {
@@ -156,7 +164,7 @@ export class Config {
 	 * Saves config to a current workspace.
 	 */
 	public async save() {
-		const str = yml.stringify(this.params);
+		const str = this.format();
 		await mkdir(dirname(this.configPath), { recursive: true });
 		await writeFile(this.configPath, str);
 	}

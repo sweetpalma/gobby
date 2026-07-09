@@ -19,10 +19,12 @@ const agent = new Agent({
 
 const examples = `
 Examples:
-  gobby 
-  gobby "What have I done in my last three commits?"
-  gobby memory show
-  gobby memory clear
+	gobby 
+	gobby "What have I recently committed?"
+	gobby config show
+	gobby config reset
+	gobby memory show
+	gobby memory clear
 `;
 
 const program = new Command()
@@ -39,7 +41,7 @@ commandMemory
 	.description('show agent memories')
 	.action(async () => {
 		await agent.memory.load();
-		console.log(agent.memory.format());
+		console.log(agent.memory.format().trim());
 	});
 commandMemory
 	.command('clear')
@@ -47,6 +49,25 @@ commandMemory
 	.action(async () => {
 		agent.memory.reset();
 		await agent.memory.save();
+	});
+
+// prettier-ignore
+const commandConfig = program
+	.command('config')
+	.description('manage agent config');
+commandConfig
+	.command('show')
+	.description('show agent config')
+	.action(async () => {
+		await agent.config.load();
+		console.log(agent.config.format().trim());
+	});
+commandConfig
+	.command('reset')
+	.description('reset agent config')
+	.action(async () => {
+		agent.config.reset();
+		await agent.config.save();
 	});
 
 // prettier-ignore
@@ -73,5 +94,5 @@ program
 
 // prettier-ignore
 program
-	.addHelpText('after', examples)
+	.addHelpText('after', examples.replace(/\t/g, ' '.repeat(2)).trimEnd())
 	.parse();
