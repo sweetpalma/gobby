@@ -62,7 +62,7 @@ export interface TerminalHeaderProps {
  */
 export const TerminalHeader = ({ model, memos }: TerminalHeaderProps) => {
 	// prettier-ignore
-	return h(Box, { gap: 2, },
+	return h(Box, { gap: 2, marginTop: 1, marginBottom: 1 },
 		h(Box, { flexDirection: 'column' },
 			h(Text, { color: 'green' }, ' ▄▄ ▄██████▄ ▄▄ '),
 			h(Text, { color: 'green' }, '  ▀███ ██ ███▀  '),
