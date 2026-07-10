@@ -5,7 +5,6 @@ export default defineConfig(({ mode }) => {
 		test: {
 			reporters: 'tree',
 			setupFiles: ['./vitest.matchers.ts'],
-			isolate: false,
 		},
 	});
 	if (mode !== 'e2e') {
