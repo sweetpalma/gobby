@@ -76,7 +76,6 @@ program
 	.action(async (opts) => {
 		const main = async (initialPrompt?: string) => {
 			const tui = render({ agent, initialPrompt });
-			await agent.load();
 			await tui.waitUntilExit();
 		};
 		const query = opts.join(' ').trim();

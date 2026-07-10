@@ -56,7 +56,7 @@ Gobby is not a chatbot. It's an agent with (tiny) hands. Out of the box, it can:
 Gobby plays nicely with Unix pipes. Feed it, ask a question, get a plain answer. For example, you can:
 
 ```bash
-cat src/index.ts | gobby "explain this file"
+cat README.md | gobby "Summarise this:"
 ```
 
 ## Local Development

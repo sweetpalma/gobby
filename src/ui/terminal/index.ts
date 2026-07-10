@@ -120,6 +120,11 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 		Object.keys(listeners).forEach((key) => {
 			agent.on(key, listeners[key as keyof AgentListeners]!);
 		});
+		if (!agent.loaded) {
+			agent.load().catch((err) => {
+				handleError(err);
+			});
+		}
 		return () => {
 			Object.keys(listeners).forEach((key) => {
 				agent.off(key, listeners[key as keyof AgentListeners]!);
@@ -150,9 +155,16 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 	});
 
 	// prettier-ignore
+	if (!isInteractive) {
+		return state.history.map((msg, key) => 
+			h(Text, { key }, msg.text.trim()),
+		);
+	}
+
+	// prettier-ignore
 	return h(TerminalThemeProvider, {},
 		h(Box, { flexDirection: 'column', gap: 1, maxWidth: maxWidth ?? 80 },
-			state.status !== TerminalStatus.COLD && isInteractive &&
+			state.status !== TerminalStatus.COLD &&
 				h(TerminalHeader, {
 					model: agent.config.get('modelPath'),
 					memos: `${agent.memory.length}/${agent.memory.lengthLimit}`,
@@ -189,7 +201,7 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 					text: state.confirmation,
 					resolve: handleConfirm,
 				}),
-			state.status === TerminalStatus.READY && isInteractive &&
+			state.status === TerminalStatus.READY &&
 				h(TerminalInput, {
 					onSubmit: handlePrompt, 
 				}),
