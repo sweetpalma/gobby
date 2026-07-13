@@ -17,8 +17,8 @@ import {
 } from './model';
 
 /**
- * Model Function.
- * @remarks Mostly same as Model Function, but carries an agent reference as a second parameter.
+ * Agent Function.
+ * @remarks Semantically similar to {@link ModelFunction}, but carries an agent reference as a second function parameter.
  * @typeParam Parameters - Handler paramseters.
  * @typeParam ReturnType - Handler return type.
  */
