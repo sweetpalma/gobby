@@ -28,20 +28,6 @@ const ALLOWLIST = [
 	'git show',
 ];
 
-// Commands containing these substrings are hard-blocked.
-// Safety speed bump - not a security boundary.
-const BLOCKLIST = [
-	'rm -rf /',
-	'sudo',
-	'chmod 777 /',
-	'chown -R',
-	':(){ :|:& };:',
-	'mkfs',
-	'dd if=/dev/zero',
-	'wget -qO- | sh',
-	'curl | sh',
-];
-
 // Shell metacharacters that indicate compound commands.
 // The model is instructed not to use these, but small models ignore that rule.
 // We enforce it here so the model gets a clear error and can self-correct.
@@ -53,20 +39,6 @@ const COMPOUND_PATTERNS = [
 	{ pattern: /\|\|/, label: 'conditional chaining (||)' },
 	{ pattern: /;/, label: 'command sequencing (;)' },
 ];
-
-const isAllowlisted = (command: string) => {
-	return ALLOWLIST.some(
-		(prefix) => command === prefix || command.startsWith(prefix + ' '),
-	);
-};
-
-const isBlocklisted = (command: string) => {
-	return BLOCKLIST.some((blocked) => command.includes(blocked));
-};
-
-const getCompoundViolation = (command: string) => {
-	return COMPOUND_PATTERNS.find(({ pattern }) => pattern.test(command));
-};
 
 export const shellExecute = Agent.function({
 	description:
@@ -90,18 +62,18 @@ export const shellExecute = Agent.function({
 		if (!trimmedCommand) {
 			return { error: 'Command cannot be empty.' };
 		}
-		const violation = getCompoundViolation(trimmedCommand);
+		const violation = COMPOUND_PATTERNS.find(({ pattern }) => {
+			return pattern.test(command);
+		});
 		if (violation) {
 			return {
 				error: `Compound commands are not allowed: detected ${violation.label}. Call "shellExecute" once per simple command and combine the results yourself.`,
 			};
 		}
-		if (isBlocklisted(trimmedCommand)) {
-			return {
-				error: `Command blocked for safety.`,
-			};
-		}
-		if (!isAllowlisted(trimmedCommand)) {
+		const allowed = ALLOWLIST.some((prefix) => {
+			return command === prefix || command.startsWith(prefix + ' ');
+		});
+		if (!allowed) {
 			const approved = await agent.confirm(trimmedCommand);
 			if (!approved) {
 				return {

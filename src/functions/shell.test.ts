@@ -19,13 +19,6 @@ const TEST_ALLOWLIST = [
 	'cat README.md',
 ];
 
-const TEST_BLOCKLIST = [
-	'rm -rf /',
-	'sudo rm -rf /tmp',
-	'mkfs.ext4 /dev/sda',
-	'dd if=/dev/zero of=/dev/sda',
-];
-
 const TEST_COMPOUND = [
 	['piping', 'ls | grep src'],
 	['subshell expansion', 'echo $(pwd)'],
@@ -77,12 +70,6 @@ describe('Tools (Shell)', () => {
 		it.each(TEST_COMPOUND)('rejects compound command: %s', async (_label, command) => {
 			const result = await shellExecute.handler({ command, timeout: null }, mockAgent());
 			expect(result).toMatchObject({ error: expect.stringContaining('Compound') });
-			expect(mockExec).not.toHaveBeenCalled();
-		});
-
-		it.each(TEST_BLOCKLIST)('rejects dangerous command: %s', async (command) => {
-			const result = await shellExecute.handler({ command, timeout: null }, mockAgent());
-			expect(result).toMatchObject({ error: expect.stringContaining('blocked') });
 			expect(mockExec).not.toHaveBeenCalled();
 		});
 
