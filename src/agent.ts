@@ -243,13 +243,13 @@ export class Agent extends EventEmitter<AgentEvents> {
 
 	/**
 	 * Requests user confirmation via the UI layer.
-	 * @remarks Auto-approves if no listener is registered.
+	 * @remarks Throws and error if no listeners are registered.
 	 * @param message - The message to display to the user.
 	 * @returns True if the user confirmed, false otherwise.
 	 */
 	public async confirm(message: string) {
 		if (this.listenerCount('confirm') === 0) {
-			return true;
+			throw new Error('Agent confirmation handler is not registered.');
 		}
 		return new Promise<boolean>((resolve) => {
 			this.emit('confirm', message, resolve);
