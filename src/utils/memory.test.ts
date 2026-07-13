@@ -33,7 +33,7 @@ describe('Memory', () => {
 		expect(() => mem.remove('')).toThrow('Search query cannot be empty.');
 	});
 
-	it('throws an error when trying to remove a fact using a non-resulting query', () => {
+	it('throws an error when trying to remove a fact using a non-matching query', () => {
 		const mem = new Memory({ path });
 		mem.add('Hello!');
 		mem.add('World!');
@@ -44,9 +44,7 @@ describe('Memory', () => {
 		const mem = new Memory({ path });
 		mem.add('Hello!');
 		mem.add('World!');
-		expect(() => mem.remove('!')).toThrow(
-			'The query "!" matched multiple facts. Please be more specific.',
-		);
+		expect(() => mem.remove('!')).toThrow('No facts matched the query "!".');
 	});
 
 	it('implements fact addition and removal functionality', () => {
@@ -61,13 +59,18 @@ describe('Memory', () => {
 
 	it('implements fact deduplication', () => {
 		const mem = new Memory({ path });
-		mem.add('Hello!');
-		mem.add('Hello!');
-		expect(mem.list()).toEqual(['Hello!']);
+		mem.add('My name is Palma!');
+		mem.add('Name is Palma!');
+		expect(mem.list()).toEqual(['Name is Palma!']);
+		mem.reset();
+		mem.add('User likes TypeScript');
+		mem.add('User prefers dark mode');
+		expect(mem.list()).toEqual(['User likes TypeScript', 'User prefers dark mode']);
 	});
 
 	it('implements format functionality', () => {
 		const mem = new Memory({ path });
+		expect(mem.format()).toEqual('');
 		mem.add('Hello!');
 		mem.add('World!');
 		expect(mem.format()).toEqual(['- Hello!', '- World!'].join('\n'));

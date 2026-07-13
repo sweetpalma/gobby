@@ -56,6 +56,37 @@ export const memoryForget = Agent.function({
 	},
 });
 
+export const memoryUpdate = Agent.function({
+	description:
+		'Update an existing memorized fact. Finds a fact matching the query and replaces it with the new content. Use this when a previously memorized fact needs correction.',
+	params: {
+		type: 'object',
+		properties: {
+			query: {
+				type: 'string',
+				description: 'Search query to find the fact to update.',
+			},
+			fact: {
+				type: 'string',
+				description: 'The updated fact to replace the old one.',
+			},
+		},
+	},
+	handler: async ({ query, fact }, agent: Agent) => {
+		try {
+			agent.memory.update(query, fact);
+			await agent.memory.save();
+			return {
+				result: `Updated (${agent.memory.length}/${agent.memory.lengthLimit} characters used).`,
+			};
+		} catch (err) {
+			return {
+				error: `Failed to update: ${err instanceof Error ? err.message : err}`,
+			};
+		}
+	},
+});
+
 export const memoryStatus = Agent.function({
 	description:
 		'Check current memory status - lists all memorized facts and shows how many characters are used out of the total limit.',
