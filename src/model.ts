@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { Mutex } from 'es-toolkit';
+import { mapValues, Mutex } from 'es-toolkit';
 import {
 	LlamaChatSession,
 	LlamaLogLevel,
@@ -281,33 +281,31 @@ export class Model {
 			});
 		};
 		const infer = async (session: LlamaChatSession): Promise<ModelResponse> => {
+			const functions =
+				this.opts.functions &&
+				mapValues(this.opts.functions, (fn, name) => {
+					return {
+						...fn,
+						handler: async (params: unknown) => {
+							prompt.onFunctionCall?.(name, params);
+							return fn.handler(params);
+						},
+					};
+				});
 			try {
-				let functionName = '';
-				let functionArgs = '';
-				let textBuffer = '';
+				const buffer: Array<string> = [];
 				await session.prompt(prompt.text, {
-					functions: this.opts.functions,
+					functions,
 					temperature: this.opts.temperature ?? 0.25,
 					signal: prompt.signal,
 					stopOnAbortSignal: true,
-					onFunctionCallParamsChunk: (chunk) => {
-						if (functionName.length === 0) {
-							functionName = chunk.functionName;
-						}
-						functionArgs = functionArgs + chunk.paramsChunk;
-						if (chunk.done) {
-							prompt.onFunctionCall?.(functionName, JSON.parse(functionArgs));
-							functionName = '';
-							functionArgs = '';
-						}
-					},
 					onTextChunk: (chunk) => {
-						textBuffer = textBuffer + chunk;
+						buffer.push(chunk);
 						prompt.onTextChunk?.(chunk);
 					},
 				});
 				return {
-					text: textBuffer,
+					text: buffer.join(''),
 				};
 			} catch (err) {
 				const message = err instanceof Error ? err.message : `${err}`;
