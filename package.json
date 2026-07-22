@@ -1,6 +1,6 @@
 {
 	"name": "gobby-agent",
-	"version": "0.1.4",
+	"version": "0.1.5",
 	"type": "module",
 	"description": "Mischievous gremlin agent with goblin vibes.",
 	"author": "SweetPalma",
