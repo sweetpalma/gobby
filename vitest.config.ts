@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
 		return mergeConfig(common, {
 			test: {
 				include: ['e2e/**/*.test.ts'],
+				execArgv: ['--max-old-space-size=8192'],
 				fileParallelism: false,
 				hookTimeout: 60 * 15 * 1000,
 				testTimeout: 60 * 1000,

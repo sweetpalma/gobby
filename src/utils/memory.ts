@@ -13,7 +13,7 @@ export const MemorySchema = zod.array(zod.string());
 /**
  * Memory Options.
  */
-export interface MemoryOptions {
+export interface MemoryManagerOptions {
 	path: string;
 	similarityThreshold?: number;
 	lengthLimit?: number;
@@ -27,9 +27,9 @@ export class MemoryError extends Error {
 }
 
 /**
- * Memory Container.
+ * Memory Manager.
  */
-export class Memory {
+export class MemoryManager {
 	private facts: Array<string> = [];
 	private similarityThreshold: number;
 	private path: string;
@@ -39,7 +39,7 @@ export class Memory {
 	 * @param opts.similarityThreshold - Deduplication similarity threshold.
 	 * @param opts.lengthLimit - Memory limit in charachters.
 	 */
-	constructor(opts: MemoryOptions) {
+	constructor(opts: MemoryManagerOptions) {
 		this.path = opts.path;
 		this.similarityThreshold = opts.similarityThreshold ?? 0.8;
 		this.lengthLimit = opts.lengthLimit ?? 4096;
@@ -54,7 +54,7 @@ export class Memory {
 	 * Current memory size in charachters.
 	 */
 	public get length() {
-		return this.format().length;
+		return this.facts.reduce((acc, fact) => fact.length + acc, 0);
 	}
 
 	/**
@@ -65,8 +65,8 @@ export class Memory {
 	}
 
 	/**
-	 * Formats known facts into a string and returns it.
-	 * @returns Formatted string, or an empty string if no facts are present.
+	 * Formats known facts into a readable string and returns it.
+	 * @returns Formatted memories.
 	 */
 	public format() {
 		const lines = this.facts.map((f) => `- ${f}`);
@@ -159,13 +159,13 @@ export class Memory {
 	 * @remarks Does nothing if memory file does not exist.
 	 */
 	public async load() {
-		const str = await readFile(this.path, 'utf-8').catch(() => {
+		const file = await readFile(this.path, 'utf-8').catch(() => {
 			return null;
 		});
-		if (!str) {
+		if (!file) {
 			return;
 		}
-		const { data, error } = MemorySchema.safeParse(yml.parse(str));
+		const { data, error } = MemorySchema.safeParse(yml.parse(file));
 		if (!error) {
 			this.facts = data;
 		} else {

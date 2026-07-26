@@ -1,4 +1,4 @@
-# Gobby
+# Gobby Agent
 
 [![npm-badge]][npm-url]
 [![ci-badge]][ci-url]
@@ -7,14 +7,14 @@
 
 ![demo](demo.gif)
 
-Gobby is a blazing fast gremlin agent that never leaves your machine. No clouds, no API keys, no sending your secrets to the hoomans in the sky - just you, a tiny virtual creature, and nothing inbetween.
+Gobby is a tiny agent that never leaves your machine. No clouds, no API keys, no sending your secrets to the hoomans in the sky — just you, a tiny virtual creature, and nothing in between.
 
 **Features:**
 
 - **Zero Config:** NPM install and run. No twelve-step wizards.
 - **Completely Local:** No telemetry, no tracking, no corporate bullshit.
 - **Runs on Fumes:** Fits comfortably in ~4GB of RAM, and unloads itself when idle.
-- **Super Fast:** Boots in under 3s on modern Macs.
+- **Super Fast:** Boots in under 3s on modern Macs. Blink and it's already listening.
 
 ### Zero Configuration
 
@@ -25,31 +25,34 @@ npm install -g gobby-agent
 gobby
 ```
 
-On its first launch, Gobby will scavenge the Hugging Face for its brain - a tiny four-billion parameter model that fits comfortably in ~4GB of RAM. After that, everything runs completely offline.
+On its first launch, Gobby will scavenge the Hugging Face for its brain - a tiny four-billion parameter model that fits comfortably in four gigabytes of RAM. After that one trip, it never needs to leave the house again.
 
-No accounts. No tokens. No configuration wizard asking you twelve questions before you can say hello. It just works - and _fast_.
+No accounts. No tokens. No configuration wizard asking twelve questions
+before you're allowed to say hello. You install it, you run it, it works.
 
 ### Completely Local
 
-Your conversations, your files, your code - none of it leaves your machine. Ever.
+Your conversations, your files, your code — none of it leaves your machine. Ever. Gobby doesn't phone home. It doesn't have a landline.
 
-Gobby runs inference directly on your hardware. When you walk away, it unloads the model from memory to give your RAM back. When you come back, it picks up right where you left off - as if it never left.
+Inference runs directly on your hardware. Walk away, and it politely unloads itself from memory, handing your RAM back like a good houseguest. Come back, and it picks right back up — like it never left, because it never went anywhere.
 
-No telemetry. No analytics. No "we take your privacy seriously" blog post that means the opposite. The network cable could be unplugged and Gobby would not even notice.
+No telemetry. No analytics. No "we take your privacy seriously" blog post that quietly means the opposite. Unplug the network cable and Gobby won't even notice.
 
 ### Batteries Included
 
-Gobby is not a chatbot. It's an agent with (tiny) hands. Out of the box, it can:
+Gobby is not just a chatbot. It's an agent with (tiny) hands. Out of the box, it can:
 
-- **Read and write:** List directories, read files, write new ones, delete what needs deleting. All scoped to your current working directory so it can't wander off.
+- **Read and write:** List directories, read files, write new ones, delete what needs deleting. All scoped to your current working directory, so it can't go digging around in places it shouldn't.
 
-- **Search across your project:** Grep through file contents, find files by glob pattern. It always looks before it leaps.
+- **Search across your project:** Grep through file contents, find files by glob pattern. It always looks before it leaps — no guessing where things live.
 
-- **Run shell commands:** Safe commands like `git status`, `npm test`, and `ls` run automatically. Anything spicy requires your explicit confirmation. Anything truly unhinged (like nuking your hard drive) is hard-blocked.
+- **Run commands:** Safe, boring commands run on their own. Anything spicier stops and asks first. Anything truly unhinged gets refused outright, no matter how nicely you ask.
 
-- **Browse web:** Fetch raw URLs or read web pages as clean Markdown. Documentation, APIs, Stack Overflow - it can go get what it needs, but _only_ when you ask to.
+- **Browse web:** Fetch a URL, read a page as clean Markdown, chase down docs or a Stack Overflow answer — but only when you tell it to. It won't go wandering off on its own curiosity.
 
-- **Remember things:** Persistent memory across sessions. Tell it your name, your preferences, your project conventions. It writes them down and carries them forward.
+- **Remember things:** Tell it once, and it's remembered next time you open the terminal — no re-explaining your project every session.
+
+- **Learn skills:** Drop a skill into your project and Gobby picks it up automatically — project conventions, workflows, house rules, whatever you teach it. Support for the open [Agent Skills](https://agentskills.io/) standard means skills you write for Gobby work elsewhere too.
 
 ### Terminal Friendly
 
@@ -87,7 +90,7 @@ Pull requests are always welcome!
 
 ## License
 
-Gobby is open-source under the MIT license. That means you can do whatever you want - with no complaints. You can even turn it into your own abuse goblin (please, don't do this).
+Gobby is open-source under the MIT license. Do whatever you want with it, no complaints. You could even turn it into your own little abuse goblin. Please don't do this.
 
 _Signed by Gobby, your mischievous gremlin assistant._
 

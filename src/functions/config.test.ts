@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fs, vol } from 'memfs';
 import { configRead, configWrite } from './config';
-import { Config, CONFIG_DEFAULTS } from '../utils/config';
+import { ConfigManager, CONFIG_DEFAULTS } from '../utils/config';
 import { Agent } from '../agent';
 
 vi.mock('node:fs/promises', () => fs.promises);
 vi.mock('node:fs', () => fs);
 
 const mockAgent = (workspace: string) => {
-	const config = new Config({ workspace });
+	const config = new ConfigManager({ workspace });
 	const agent: Partial<Agent> = { config };
 	return agent as Agent;
 };

@@ -321,7 +321,7 @@ export class Model {
 				const buffer: Array<string> = [];
 				await session.prompt(prompt.text, {
 					functions,
-					temperature: this.opts.temperature ?? 0.25,
+					temperature: this.opts.temperature ?? 0.175,
 					signal: prompt.signal,
 					stopOnAbortSignal: true,
 					onTextChunk: (chunk) => {

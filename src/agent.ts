@@ -1,12 +1,15 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { pick, mapValues } from 'es-toolkit';
 
-import { downloadModel } from './utils/download';
-import { SYSTEM_PROMPT } from './prompts/system';
 import { Browser } from './utils/browser';
-import { Memory } from './utils/memory';
+import { downloadModel } from './utils/download';
+import { ConfigManager } from './utils/config';
+import { MemoryManager } from './utils/memory';
+import { SkillManager } from './utils/skill';
+import { SYSTEM_PROMPT } from './prompts/system';
 import { Logger } from './utils/logger';
-import { Config } from './utils/config';
 import {
 	Model,
 	ModelResponse,
@@ -39,7 +42,7 @@ export interface AgentFunction<
  * Agent Options.
  */
 export interface AgentOptions {
-	config: Config;
+	config: ConfigManager;
 	functions?: Record<string, AgentFunction>;
 }
 
@@ -74,8 +77,8 @@ export const AgentAbort = ModelAbort;
  */
 export class Agent extends EventEmitter<AgentEvents> {
 	private model: Model | null = null;
-	private idleTimer: ReturnType<typeof setTimeout> | null = null;
-	private functions: Record<string, ModelFunction>;
+	private idleTimer?: ReturnType<typeof setTimeout>;
+	private functions?: Record<string, ModelFunction>;
 
 	/**
 	 * @param opts.config Agent config container.
@@ -84,7 +87,8 @@ export class Agent extends EventEmitter<AgentEvents> {
 	constructor(opts: AgentOptions) {
 		super();
 		this.config = opts.config;
-		this.memory = new Memory({
+		this.skills = new SkillManager();
+		this.memory = new MemoryManager({
 			path: this.config.memoryPath,
 			lengthLimit: this.config.get('memorySize'),
 		});
@@ -116,14 +120,19 @@ export class Agent extends EventEmitter<AgentEvents> {
 	}
 
 	/**
-	 * Agent memory.
+	 * Agent memory manager.
 	 */
-	public readonly memory: Memory;
+	public readonly memory: MemoryManager;
 
 	/**
-	 * Agent config.
+	 * Agent config manager.
 	 */
-	public readonly config: Config;
+	public readonly config: ConfigManager;
+
+	/**
+	 * Agent skills manager.
+	 */
+	public readonly skills: SkillManager;
 
 	/**
 	 * Agent logger.
@@ -160,11 +169,14 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 * Agent system prompt.
 	 */
 	public get systemPrompt() {
-		if (this.memory.length === 0) {
-			return SYSTEM_PROMPT;
+		const parts = [SYSTEM_PROMPT];
+		if (this.memory.length > 0) {
+			parts.push(`Your memory:\n${this.memory.format()}`);
 		}
-		const memory = '\nYou remember the following:\n' + this.memory.format();
-		return (SYSTEM_PROMPT + memory).trim();
+		if (this.skills.length > 0) {
+			parts.push(`Your skills:\n${this.skills.format()}`);
+		}
+		return parts.join('\n');
 	}
 
 	/**
@@ -192,6 +204,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 		}
 		await this.config.load();
 		await this.memory.load();
+		await this.loadSkills();
 		this.memory.lengthLimit = this.config.get('memorySize');
 		this.emit('init');
 		const path = await downloadModel({
@@ -214,6 +227,29 @@ export class Agent extends EventEmitter<AgentEvents> {
 		await this.model.loadCache(this.config.cachePath);
 		this.emit('loadComplete');
 		this.resetIdleTimer();
+	}
+
+	/**
+	 * Loads agent skills.
+	 * @internal
+	 */
+	public async loadSkills() {
+		const sources = [
+			join(import.meta.dirname, 'skills'),
+			join(this.config.workspace, 'skills'),
+			join(homedir(), '.agents', 'skills'),
+			join(process.cwd(), '.agents', 'skills'),
+		];
+		this.skills.reset();
+		for (const source of sources) {
+			const { errors } = await this.skills.loadDirectory(source);
+			for (const err of errors) {
+				this.logger.warn('Failed to load skill.', {
+					source,
+					error: err.message,
+				});
+			}
+		}
 	}
 
 	/**
@@ -244,6 +280,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 			}
 			if (!this.model.loaded) {
 				this.emit('idleReload');
+				await this.loadSkills();
 				await this.model.load();
 				await this.model.loadCache(this.config.cachePath);
 			}
@@ -315,7 +352,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 	private clearIdleTimer() {
 		if (this.idleTimer) {
 			clearTimeout(this.idleTimer);
-			this.idleTimer = null;
+			this.idleTimer = undefined;
 		}
 	}
 

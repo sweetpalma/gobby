@@ -6,13 +6,13 @@ import { Command } from '@commander-js/extra-typings';
 
 import * as functions from './functions';
 import { version } from '../package.json';
-import { Agent } from './agent';
-import { Config } from './utils/config';
 import { render } from './ui/terminal';
+import { ConfigManager } from './utils/config';
+import { Agent } from './agent';
 
 const agent = new Agent({
 	functions,
-	config: new Config({
+	config: new ConfigManager({
 		workspace: process.env.GOBBY_WORKSPACE ?? join(homedir(), '.gobby'),
 	}),
 });
@@ -68,6 +68,18 @@ commandConfig
 	.action(async () => {
 		agent.config.reset();
 		await agent.config.save();
+	});
+
+// prettier-ignore
+const commandSkills = program
+	.command('skills')
+	.description('manage agent skills');
+commandSkills
+	.command('show')
+	.description('show agent skills')
+	.action(async () => {
+		await agent.loadSkills();
+		console.log(agent.skills.format().trim());
 	});
 
 // prettier-ignore

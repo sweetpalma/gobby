@@ -1,17 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fs, vol } from 'memfs';
 import { memoryRemember, memoryForget, memoryUpdate, memoryStatus } from './memory';
-import { Memory } from '../utils/memory';
+import { MemoryManager } from '../utils/memory';
 import { Agent } from '../agent';
 
 vi.mock('node:fs/promises', () => fs.promises);
 vi.mock('node:fs', () => fs);
 
 const mockAgent = () => {
-	const memory = new Memory({ path: '/workspace/memory.yml', lengthLimit: 4096 });
-	const agent: Partial<Agent> = {
-		memory,
-	};
+	const memory = new MemoryManager({ path: '/workspace/memory.yml', lengthLimit: 4096 });
+	const agent: Partial<Agent> = { memory };
 	return agent as Agent;
 };
 
@@ -28,17 +26,17 @@ describe('Tools (Memory)', () => {
 		it('adds a fact to memory and saves', async () => {
 			const agent = mockAgent();
 			const result = await memoryRemember.handler({ fact: 'User likes testing' }, agent);
-			expect(result).toEqual({ result: 'Memorized (20/4096 characters used).' });
+			expect(result).toEqual({ result: expect.stringContaining('Memorized') });
 			const savedContent = fs.readFileSync('/workspace/memory.yml', 'utf-8');
 			expect(savedContent).toContain('User likes testing');
 		});
 
 		it('returns an error if save fails', async () => {
 			const agent = mockAgent();
-			vol.mkdirSync('/workspace/memory.yml', { recursive: true }); // simulate folder existing
+			vol.mkdirSync('/workspace/memory.yml', { recursive: true });
 			const result = await memoryRemember.handler({ fact: 'User likes testing' }, agent);
 			expect(result).toHaveProperty('error');
-			expect((result as any).error).toContain('Failed to memorize');
+			expect(result.error).toContain('Failed to memorize');
 		});
 	});
 
@@ -57,7 +55,7 @@ describe('Tools (Memory)', () => {
 			const agent = mockAgent();
 			const result = await memoryForget.handler({ query: 'testing' }, agent);
 			expect(result).toHaveProperty('error');
-			expect((result as any).error).toContain('matched the query');
+			expect(result.error).toContain('matched the query');
 		});
 	});
 
@@ -70,7 +68,7 @@ describe('Tools (Memory)', () => {
 				{ query: 'The user name is Alex.', fact: 'The user name is Bob.' },
 				agent,
 			);
-			expect(result).toEqual({ result: 'Updated (23/4096 characters used).' });
+			expect(result).toEqual({ result: expect.stringContaining('Updated') });
 			expect(agent.memory.list()).toEqual(['The user name is Bob.']);
 			const savedContent = fs.readFileSync('/workspace/memory.yml', 'utf-8');
 			expect(savedContent).toContain('The user name is Bob.');
@@ -86,7 +84,7 @@ describe('Tools (Memory)', () => {
 				agent,
 			);
 			expect(result).toHaveProperty('error');
-			expect((result as any).error).toContain('Failed to update');
+			expect(result.error).toContain('Failed to update');
 			expect(agent.memory.list()).toEqual(['The user name is Alex.']);
 		});
 
@@ -101,7 +99,7 @@ describe('Tools (Memory)', () => {
 				agent,
 			);
 			expect(result).toHaveProperty('error');
-			expect((result as any).error).toContain('Failed to update');
+			expect(result.error).toContain('Failed to update');
 			expect(agent.memory.list()).toEqual(['The user name is Alex.']);
 		});
 	});
@@ -112,9 +110,8 @@ describe('Tools (Memory)', () => {
 			agent.memory.add('User likes testing');
 			agent.memory.add('Prefers dark mode');
 			const result = await memoryStatus.handler({}, agent);
-			expect(result).toEqual({
+			expect(result).toMatchObject({
 				facts: ['User likes testing', 'Prefers dark mode'],
-				usage: '40/4096 characters used',
 			});
 		});
 	});

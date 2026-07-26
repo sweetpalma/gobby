@@ -38,20 +38,27 @@ export const CONFIG_DEFAULTS: ConfigSchema = {
 /**
  * Config Options.
  */
-export interface ConfigOptions {
+export interface ConfigManagerOptions {
 	workspace: string;
 	params?: Partial<ConfigSchema>;
 }
 
 /**
- * Config Container.
+ * Config Error.
  */
-export class Config {
+export class ConfigError extends Error {
+	public override name = 'ConfigError';
+}
+
+/**
+ * Config Manager.
+ */
+export class ConfigManager {
 	private params: ConfigSchema;
 
-	constructor(opts: ConfigOptions) {
-		this.workspace = opts.workspace;
+	constructor(opts: ConfigManagerOptions) {
 		this.params = structuredClone({ ...CONFIG_DEFAULTS, ...opts.params });
+		this.workspace = opts.workspace;
 	}
 
 	/**
@@ -112,12 +119,12 @@ export class Config {
 			this.params[key] = data as ConfigSchema[K];
 		} else {
 			const msg = zod.prettifyError(error);
-			throw new Error(msg);
+			throw new ConfigError(msg);
 		}
 	}
 
 	/**
-	 * Formats agent config into a YAML string and returns it.
+	 * Formats agent config into a readable string and returns it.
 	 * @returns Formatted config.
 	 */
 	public format() {
@@ -147,11 +154,13 @@ export class Config {
 	 * Loads config from a current workspace.
 	 */
 	public async load() {
-		if (!(await this.exists())) {
+		const file = await readFile(this.configPath, 'utf-8').catch(() => {
+			return null;
+		});
+		if (!file) {
 			return;
 		}
-		const config = await readFile(this.configPath, 'utf-8');
-		const { data, error } = ConfigSchema.partial().safeParse(yml.parse(config));
+		const { data, error } = ConfigSchema.partial().safeParse(yml.parse(file));
 		if (!error) {
 			Object.assign(this.params, data);
 		} else {
@@ -164,8 +173,8 @@ export class Config {
 	 * Saves config to a current workspace.
 	 */
 	public async save() {
-		const str = this.format();
+		const file = yml.stringify(this.params);
 		await mkdir(dirname(this.configPath), { recursive: true });
-		await writeFile(this.configPath, str);
+		await writeFile(this.configPath, file);
 	}
 }
