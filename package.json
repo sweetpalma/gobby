@@ -31,7 +31,9 @@
 	},
 	"scripts": {
 		"prepack": "npm run build",
-		"prepare": "husky",
+		"prepare": "npm run prepare-husky && npm run prepare-browser",
+		"prepare-husky": "husky",
+		"prepare-browser": "patchright install chromium --with-deps --only-shell",
 		"chat": "tsx src/index.ts",
 		"build": "npm run typecheck && npm run bundle",
 		"bundle": "esbuild src/index.ts --outdir=dist --platform=node --packages=external --format=esm --bundle",
@@ -46,16 +48,21 @@
 		"@commander-js/extra-typings": "^15.0.0",
 		"@huggingface/hub": "^2.13.1",
 		"@inkjs/ui": "^2.0.0",
+		"@mozilla/readability": "^0.6.0",
 		"commander": "^15.0.0",
 		"diff-match-patch-ts": "^0.8.0",
 		"es-toolkit": "^1.47.0",
 		"fast-glob": "^3.3.3",
 		"ink": "^7.0.6",
 		"is-online": "^12.0.2",
+		"linkedom": "^0.18.13",
 		"marked": "^10.0.0",
 		"marked-terminal": "^7.3.0",
 		"node-llama-cpp": "^3.18.1",
+		"patchright": "^1.61.1",
+		"picomatch": "^4.0.5",
 		"react": "^19.2.7",
+		"turndown": "^7.2.4",
 		"unbash": "^4.0.4",
 		"winston": "^3.19.0",
 		"winston-daily-rotate-file": "^5.0.0",
@@ -65,7 +72,9 @@
 	"devDependencies": {
 		"@types/marked-terminal": "^6.1.1",
 		"@types/node": "^25.9.3",
+		"@types/picomatch": "^4.0.3",
 		"@types/react": "^19.2.17",
+		"@types/turndown": "^5.0.6",
 		"esbuild": "^0.28.0",
 		"husky": "^9.1.7",
 		"lint-staged": "^17.0.8",
@@ -77,9 +86,10 @@
 		"vitest": "^4.1.9"
 	},
 	"allowScripts": {
-		"esbuild": true,
+		"node-llama-cpp": true,
+		"playwright": true,
 		"fsevents": true,
-		"node-llama-cpp": true
+		"esbuild": true
 	},
 	"lint-staged": {
 		"**/*.{ts,md,yml,json}": "prettier --write"

@@ -2,6 +2,7 @@ import { createElement as h, useEffect, useRef } from 'react';
 import { render as inkRender, Box, Text, useInput } from 'ink';
 import { Spinner } from '@inkjs/ui';
 
+import { version } from '../../../package.json';
 import { Agent, AgentEvents, AgentAbort } from '../../agent';
 import { TerminalStatus, useTerminalStore } from './store';
 import {
@@ -168,6 +169,7 @@ export const Terminal = ({ agent, initialPrompt, maxWidth }: TerminalProps) => {
 				h(TerminalHeader, {
 					model: agent.config.get('modelPath'),
 					memos: `${agent.memory.length}/${agent.memory.lengthLimit}`,
+					version,
 				}),
 			state.history.map((msg, key) => 
 				h(TerminalMessage, { key, ...msg }),

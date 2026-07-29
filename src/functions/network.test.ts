@@ -2,9 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { networkFetch, networkRead } from './network';
 import { Agent } from '../agent';
 
-const mockAgent = (approved: boolean = true) => {
+const mockAgent = (approved: boolean = true, browserMock?: any) => {
 	const agent: Partial<Agent> = {
 		confirm: vi.fn().mockResolvedValue(approved),
+		browser: {
+			loaded: true,
+			readMarkdown: vi.fn().mockResolvedValue({
+				title: 'Mock Title',
+				body: '# Hello',
+			}),
+			...browserMock,
+		},
 	};
 	return agent as Agent;
 };
@@ -37,19 +45,18 @@ describe('Tools (Network)', () => {
 		it('fetches a URL and returns its content', async () => {
 			mockFetchResult(true, 200, 'OK', '<html>data</html>');
 			const result = await networkFetch.handler(
-				{ url: 'https://example.com' },
+				{ url: 'https://example.com', timeout: null, maxLength: null },
 				mockAgent(),
 			);
-			expect(global.fetch).toHaveBeenCalledWith('https://example.com');
+			expect(global.fetch).toHaveBeenCalled();
 			expect(result).toEqual({
-				url: 'https://example.com',
-				content: '<html>data</html>',
+				body: '<html>data</html>',
 			});
 		});
 
 		it('aborts if the user rejects the command', async () => {
 			const result = await networkFetch.handler(
-				{ url: 'https://example.com' },
+				{ url: 'https://example.com', timeout: null, maxLength: null },
 				mockAgent(false),
 			);
 			expect(result.error).toContain('rejected');
@@ -59,7 +66,7 @@ describe('Tools (Network)', () => {
 		it('returns an error if the HTTP response is not ok', async () => {
 			mockFetchResult(false, 404, 'Not Found', '');
 			const result = await networkFetch.handler(
-				{ url: 'https://example.com' },
+				{ url: 'https://example.com', timeout: null, maxLength: null },
 				mockAgent(),
 			);
 			expect(result.error).toContain('HTTP 404 Not Found');
@@ -68,18 +75,18 @@ describe('Tools (Network)', () => {
 		it('truncates content larger than 8000 characters', async () => {
 			mockFetchResult(true, 200, 'OK', 'x'.repeat(10000));
 			const result = await networkFetch.handler(
-				{ url: 'https://example.com' },
+				{ url: 'https://example.com', timeout: null, maxLength: null },
 				mockAgent(),
 			);
 			expect(result).toMatchObject({
-				content: expect.stringContaining('Truncated'),
+				body: expect.stringContaining('Truncated'),
 			});
 		});
 
 		it('catches and returns fetch errors', async () => {
 			mockFetchError(new Error('Network failure'));
 			const result = await networkFetch.handler(
-				{ url: 'https://example.com' },
+				{ url: 'https://example.com', timeout: null, maxLength: null },
 				mockAgent(),
 			);
 			expect(result.error).toContain('Network failure');
@@ -87,57 +94,68 @@ describe('Tools (Network)', () => {
 	});
 
 	describe('networkRead', () => {
-		it('reads a URL via jina.ai and returns markdown content', async () => {
-			mockFetchResult(true, 200, 'OK', '# Hello');
+		it('reads a URL via the headless browser and returns markdown content', async () => {
+			const browserMock = {
+				loaded: true,
+				readMarkdown: vi.fn().mockResolvedValue({
+					title: 'Example',
+					body: '# Hello',
+				}),
+			};
+			const agent = mockAgent(true, browserMock);
 			const result = await networkRead.handler(
-				{ url: 'https://example.com' },
-				mockAgent(),
+				{ url: 'https://example.com', timeout: null, maxLength: null },
+				agent,
 			);
-			expect(global.fetch).toHaveBeenCalledWith('https://r.jina.ai/https://example.com', {
-				headers: { Accept: 'text/markdown' },
-			});
+			expect(browserMock.readMarkdown).toHaveBeenCalled();
 			expect(result).toEqual({
-				url: 'https://example.com',
-				content: '# Hello',
+				title: 'Example',
+				body: '# Hello',
 			});
 		});
 
 		it('aborts if the user rejects the command', async () => {
+			const browserMock = { readMarkdown: vi.fn() };
+			const agent = mockAgent(false, browserMock);
 			const result = await networkRead.handler(
-				{ url: 'https://example.com' },
-				mockAgent(false),
+				{ url: 'https://example.com', timeout: null, maxLength: null },
+				agent,
 			);
-			expect(result.error).toContain('rejected');
-			expect(global.fetch).not.toHaveBeenCalled();
-		});
-
-		it('returns an error if the HTTP response is not ok', async () => {
-			mockFetchResult(false, 500, 'Server Error', '');
-			const result = await networkRead.handler(
-				{ url: 'https://example.com' },
-				mockAgent(),
-			);
-			expect(result.error).toContain('HTTP 500 Server Error');
-		});
-
-		it('truncates content larger than 8000 characters', async () => {
-			mockFetchResult(true, 200, 'OK', 'x'.repeat(10000));
-			const result = await networkRead.handler(
-				{ url: 'https://example.com' },
-				mockAgent(),
-			);
+			expect(browserMock.readMarkdown).not.toHaveBeenCalled();
 			expect(result).toMatchObject({
-				content: expect.stringContaining('Truncated'),
+				error: expect.stringContaining('rejected'),
 			});
 		});
 
-		it('catches and returns fetch errors', async () => {
-			mockFetchError(new Error('DNS resolution failed'));
+		it('truncates body content larger than 8000 characters', async () => {
+			const browserMock = {
+				readMarkdown: vi.fn().mockResolvedValue({
+					title: 'Example',
+					body: 'x'.repeat(10000),
+				}),
+			};
+			const agent = mockAgent(true, browserMock);
 			const result = await networkRead.handler(
-				{ url: 'https://example.com' },
-				mockAgent(),
+				{ url: 'https://example.com', timeout: null, maxLength: null },
+				agent,
 			);
-			expect(result.error).toContain('DNS resolution failed');
+			expect(result).toMatchObject({
+				body: expect.stringContaining('Truncated due to length'),
+			});
+		});
+
+		it('catches and returns browser errors', async () => {
+			const browserMock = {
+				readMarkdown: vi.fn().mockRejectedValue(new Error('Browser crashed')),
+			};
+			const agent = mockAgent(true, browserMock);
+			const result = await networkRead.handler(
+				{ url: 'https://example.com', timeout: null, maxLength: null },
+				agent,
+			);
+			expect(result).toMatchObject({
+				error: expect.stringContaining('Failed to read URL: Browser crashed'),
+			});
 		});
 	});
 });

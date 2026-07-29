@@ -2,8 +2,9 @@ import { EventEmitter } from 'node:events';
 import { pick, mapValues } from 'es-toolkit';
 
 import { downloadModel } from './utils/download';
-import { Memory } from './utils/memory';
 import { SYSTEM_PROMPT } from './prompts/system';
+import { Browser } from './utils/browser';
+import { Memory } from './utils/memory';
 import { Logger } from './utils/logger';
 import { Config } from './utils/config';
 import {
@@ -82,14 +83,17 @@ export class Agent extends EventEmitter<AgentEvents> {
 	constructor(opts: AgentOptions) {
 		super();
 		this.config = opts.config;
-		this.logger = new Logger({
-			path: this.config.logsPath,
-		});
-		this.attachLogger();
 		this.memory = new Memory({
 			path: this.config.memoryPath,
 			lengthLimit: this.config.get('memorySize'),
 		});
+		this.browser = new Browser({
+			timeout: 15000,
+		});
+		this.logger = new Logger({
+			path: this.config.logsPath,
+		});
+		this.attachLogger();
 		this.functions = mapValues(opts.functions ?? {}, (fn) => {
 			return Model.function({
 				...fn,
@@ -124,6 +128,11 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 * Agent logger.
 	 */
 	public readonly logger: Logger;
+
+	/**
+	 * Agent browser.
+	 */
+	public readonly browser: Browser;
 
 	/**
 	 * Agent model status.
@@ -198,6 +207,7 @@ export class Agent extends EventEmitter<AgentEvents> {
 	 */
 	public async dispose() {
 		this.clearIdleTimer();
+		await this.browser.dispose();
 		if (this.model) {
 			await this.model.dispose();
 		}

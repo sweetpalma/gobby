@@ -1,4 +1,6 @@
 import { createElement as h, ReactNode } from 'react';
+import { marked } from 'marked';
+import TerminalRenderer from 'marked-terminal';
 import { Text, Box } from 'ink';
 import {
 	TextInput,
@@ -9,8 +11,9 @@ import {
 	defaultTheme,
 } from '@inkjs/ui';
 
-import { version } from '../../../package.json';
-import { render } from '../../utils/markdown';
+marked.setOptions({
+	renderer: new TerminalRenderer(),
+});
 
 /**
  * Terminal Theme.
@@ -53,6 +56,7 @@ export const TerminalThemeProvider = ({ children }: TerminalTheme) => {
  * Terminal Header Props.
  */
 export interface TerminalHeaderProps {
+	version: string;
 	model: string;
 	memos: string;
 }
@@ -60,7 +64,7 @@ export interface TerminalHeaderProps {
 /**
  * Terminal Header.
  */
-export const TerminalHeader = ({ model, memos }: TerminalHeaderProps) => {
+export const TerminalHeader = ({ version, model, memos }: TerminalHeaderProps) => {
 	// prettier-ignore
 	return h(Box, { gap: 2, marginTop: 1, marginBottom: 1 },
 		h(Box, { flexDirection: 'column' },
@@ -130,7 +134,7 @@ export const TerminalMessage = ({ type, text }: TerminalMessageProps) => {
 		h(Text, { color: config[type].color }, config[type].title ), 
 		h(Box, {},
 			h(Box, { width: 2, flexShrink: 0 }, h(Text, { dimColor: true }, '└')),
-			h(Text, {}, render(text).trim()),
+			h(Text, {}, marked.parse(text).trim()),
 		),
 	);
 };
@@ -173,7 +177,7 @@ export interface TerminalConfirmationProps {
 export const TerminalConfirmation = ({ text, resolve }: TerminalConfirmationProps) => {
 	// prettier-ignore
 	return h(Box, { flexDirection: 'column', },
-		h(Text, {}, `$ ${text}`),
+		h(Text, {}, `$ ${marked.parse(text).trim()}`),
 		h(Box, { gap: 1 },
 			h(Box, { width: 1, }),
 			h(Text, {}, 'Confirm?'),

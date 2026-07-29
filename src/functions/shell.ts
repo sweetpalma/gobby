@@ -62,7 +62,8 @@ export const shellExecute = Agent.function({
 			},
 			timeout: {
 				oneOf: [{ type: 'number' }, { type: 'null' }],
-				description: 'Optional: Maximum execution time in seconds. Defaults to 30.',
+				description:
+					'Optional: Maximum execution time in milliseconds. Defaults to 30000.',
 			},
 		},
 	},
@@ -89,7 +90,6 @@ export const shellExecute = Agent.function({
 			}
 		}
 		try {
-			const timeoutMs = (timeout ?? 30) * 1000;
 			const maxLength = 4096;
 			const result = await new Promise<{
 				stdout: string;
@@ -101,7 +101,7 @@ export const shellExecute = Agent.function({
 					trimmedCommand,
 					{
 						cwd: process.cwd(),
-						timeout: timeoutMs,
+						timeout: timeout ?? 30000,
 						maxBuffer: 1024 * 1024,
 						shell: process.env.SHELL ?? '/bin/sh',
 						env: {
