@@ -7,25 +7,13 @@ vi.mock('node:child_process', () => ({
 	exec: vi.fn(),
 }));
 
-const TEST_ALLOWLIST = [
-	'ls',
+const TEST_TRUSTED = [
+	'cat README.md | tail -n 10',
+	'echo $((RANDOM % <sides> + 1))',
 	'ls -la',
 	'git status',
 	'git diff HEAD',
 	'git log --oneline',
-	'npm run build',
-	'npm test',
-	'grep foo src/index.ts',
-	'cat README.md',
-];
-
-const TEST_COMPOUND = [
-	['piping', 'ls | grep src'],
-	['subshell expansion', 'echo $(pwd)'],
-	['backtick subshell', 'echo `pwd`'],
-	['chaining &&', 'npm install && npm test'],
-	['conditional chaining ||', 'true || false'],
-	['command sequencing ;', 'ls; echo done'],
 ];
 
 const mockExecResult = (params: {
@@ -67,13 +55,7 @@ describe('Tools (Shell)', () => {
 			expect(mockExec).not.toHaveBeenCalled();
 		});
 
-		it.each(TEST_COMPOUND)('rejects compound command: %s', async (_label, command) => {
-			const result = await shellExecute.handler({ command, timeout: null }, mockAgent());
-			expect(result).toMatchObject({ error: expect.stringContaining('Compound') });
-			expect(mockExec).not.toHaveBeenCalled();
-		});
-
-		it.each(TEST_ALLOWLIST)('allows safe command: %s', async (command) => {
+		it.each(TEST_TRUSTED)('allows safe command: %s', async (command) => {
 			mockExecResult({ stdout: 'ok' });
 			const agent = mockAgent();
 			const result = await shellExecute.handler({ command, timeout: null }, agent);

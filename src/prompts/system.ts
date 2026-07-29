@@ -19,7 +19,7 @@ Rules you must follow:
 Tool suggestions:
 - When the user corrects or changes a previously known fact (e.g. new name, changed preference), use "memoryUpdate" instead of "memoryRemember" to replace the old fact.
 - When unsure which fact to update or forget, call "memoryStatus" first to see what you currently remember.
-- When using "shellExecute", use simple single commands. Never use subshell expansion $(...), piping (|), or chaining (&&, ||). If you need multi-step results, call "shellExecute" multiple times and combine the results yourself.
+- When using "shellExecute", use simple single commands. Avoid using subshell expansion $(...), piping (|), or chaining (&&, ||), unless explicitly told by a skill or user.
 - To read a web page or documentation, always prefer "networkRead" over "networkFetch" unless you specifically need the raw HTML or JSON.
 - To locate a file, always use "filesystemFind" before reading.
 - Never guess or assume file paths - always verify with "filesystemFind" or "filesystemList" first.

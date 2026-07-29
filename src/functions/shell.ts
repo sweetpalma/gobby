@@ -1,48 +1,57 @@
 import { exec } from 'node:child_process';
+import { analyze } from '../utils/shell';
 import { Agent } from '../agent';
 
-// Commands starting with these prefixes skip user confirmation.
-// Read-only or standard dev workflow commands only.
-const ALLOWLIST = [
-	'cat',
-	'echo',
-	'find',
-	'grep',
-	'head',
-	'ls',
-	'npm run',
-	'npm test',
-	'npx tsc',
-	'tail',
-	'tsc',
-	'wc',
-	'which',
-	'git diff',
-	'git log',
-	'git status',
-	'git rev-parse',
-	'git rev-list',
-	'git describe',
-	'git tag',
-	'git branch',
-	'git show',
+/**
+ * Whitelisted commands.
+ * Read-only or standard dev workflow commands only.
+ */
+const TRUSTED_COMMANDS: Array<{ name: string; args?: string[] }> = [
+	{ name: 'git', args: ['status'] },
+	{ name: 'git', args: ['diff'] },
+	{ name: 'git', args: ['log'] },
+	{ name: 'git', args: ['rev-parse'] },
+	{ name: 'git', args: ['rev-list'] },
+	{ name: 'git', args: ['describe'] },
+	{ name: 'git', args: ['show'] },
+	{ name: 'cat' },
+	{ name: 'echo' },
+	{ name: 'grep' },
+	{ name: 'head' },
+	{ name: 'ls' },
+	{ name: 'tail' },
+	{ name: 'tsc' },
+	{ name: 'wc' },
+	{ name: 'which' },
 ];
 
-// Shell metacharacters that indicate compound commands.
-// The model is instructed not to use these, but small models ignore that rule.
-// We enforce it here so the model gets a clear error and can self-correct.
-const COMPOUND_PATTERNS = [
-	{ pattern: /\|/, label: 'piping (|)' },
-	{ pattern: /\$\(/, label: 'subshell expansion $()' },
-	{ pattern: /`[^`]+`/, label: 'backtick subshell' },
-	{ pattern: /&&/, label: 'command chaining (&&)' },
-	{ pattern: /\|\|/, label: 'conditional chaining (||)' },
-	{ pattern: /;/, label: 'command sequencing (;)' },
-];
+/**
+ * Checks if command is a trusted expression.
+ * @param name - Command name.
+ * @param args - Command args.
+ * @returns Binary trust status.
+ */
+const isTrusted = (name: string, args: Array<string>) => {
+	return TRUSTED_COMMANDS.some((allowed) => {
+		try {
+			if (allowed.name !== name) {
+				return false;
+			} else if (!allowed.args) {
+				return true;
+			} else {
+				return allowed.args.every((a, i) => {
+					return args[i] === a;
+				});
+			}
+		} catch {
+			return false;
+		}
+	});
+};
 
 export const shellExecute = Agent.function({
 	description:
-		'Execute a single, non-interactive shell command in the current working directory. Safe commands (git, npm, ls, etc.) run automatically. Other commands require user confirmation. Use this to run build tools, tests, git commands, or any CLI operation.',
+		'Execute a single, non-interactive shell command in the current working directory. Use this to run build tools, tests, git commands, or any CLI operation.',
 	params: {
 		type: 'object',
 		properties: {
@@ -62,18 +71,16 @@ export const shellExecute = Agent.function({
 		if (!trimmedCommand) {
 			return { error: 'Command cannot be empty.' };
 		}
-		const violation = COMPOUND_PATTERNS.find(({ pattern }) => {
-			return pattern.test(command);
-		});
-		if (violation) {
-			return {
-				error: `Compound commands are not allowed: detected ${violation.label}. Call "shellExecute" once per simple command and combine the results yourself.`,
-			};
-		}
-		const allowed = ALLOWLIST.some((prefix) => {
-			return command === prefix || command.startsWith(prefix + ' ');
-		});
-		if (!allowed) {
+		const trusted = (() => {
+			try {
+				const { calls, redirects } = analyze(trimmedCommand);
+				const everyIsTrusted = calls.every((i) => isTrusted(i.name, i.args));
+				return everyIsTrusted && calls.length > 0 && redirects.length === 0;
+			} catch {
+				return false;
+			}
+		})();
+		if (!trusted) {
 			const approved = await agent.confirm(trimmedCommand);
 			if (!approved) {
 				return {
@@ -97,6 +104,11 @@ export const shellExecute = Agent.function({
 						timeout: timeoutMs,
 						maxBuffer: 1024 * 1024,
 						shell: process.env.SHELL ?? '/bin/sh',
+						env: {
+							...process.env,
+							PAGER: 'cat',
+							TERM: 'dumb',
+						},
 					},
 					(error, stdout, stderr) => {
 						resolve({
