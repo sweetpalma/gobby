@@ -124,6 +124,28 @@ export class Model {
 	}
 
 	/**
+	 * Model context size.
+	 */
+	public get contextSize() {
+		if (this.session && !this.session.disposed) {
+			return this.session.sequence.contextSize;
+		} else {
+			return this.opts.contextSize ?? 0;
+		}
+	}
+
+	/**
+	 * Model context size (used).
+	 */
+	public get contextUsed() {
+		if (this.session && !this.session.disposed) {
+			return this.session.sequence.nextTokenIndex;
+		} else {
+			return 0;
+		}
+	}
+
+	/**
 	 * Model System Prompt.
 	 */
 	public get systemPrompt() {

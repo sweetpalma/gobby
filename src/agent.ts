@@ -143,6 +143,20 @@ export class Agent extends EventEmitter<AgentEvents> {
 	}
 
 	/**
+	 * Agent model context size.
+	 */
+	public get contextSize() {
+		return this.model?.contextSize ?? this.config.get('contextSize');
+	}
+
+	/**
+	 * Agent model context size (used).
+	 */
+	public get contextUsed() {
+		return this.model?.contextUsed ?? 0;
+	}
+
+	/**
 	 * Agent system prompt.
 	 */
 	public get systemPrompt() {
