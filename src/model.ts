@@ -29,6 +29,7 @@ export interface ModelPrompt {
 	text: string;
 	signal?: AbortSignal;
 	onFunctionCall?: (name: string, args: unknown) => void;
+	onFunctionComplete?: (name: string, args: unknown) => void;
 	onTextChunk?: (chunk: string) => void;
 }
 
@@ -288,7 +289,9 @@ export class Model {
 						...fn,
 						handler: async (params: unknown) => {
 							prompt.onFunctionCall?.(name, params);
-							return fn.handler(params);
+							const result = await fn.handler(params);
+							prompt.onFunctionComplete?.(name, result);
+							return result;
 						},
 					};
 				});

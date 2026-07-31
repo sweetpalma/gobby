@@ -61,6 +61,7 @@ export interface AgentEvents {
 	promptError: [unknown];
 	confirm: [string, (result: boolean) => void];
 	function: [string, unknown];
+	functionComplete: [string, unknown];
 }
 
 /**
@@ -240,6 +241,10 @@ export class Agent extends EventEmitter<AgentEvents> {
 					prompt.onFunctionCall?.(name, args);
 					this.emit('function', name, args);
 				},
+				onFunctionComplete: (name, data) => {
+					prompt.onFunctionComplete?.(name, data);
+					this.emit('functionComplete', name, data);
+				},
 			});
 			this.emit('promptComplete', prompt, response);
 			return response;
@@ -348,6 +353,12 @@ export class Agent extends EventEmitter<AgentEvents> {
 			this.logger.info('Function call.', {
 				functionName,
 				functionArgs,
+			});
+		});
+		this.on('functionComplete', (functionName, functionData) => {
+			this.logger.info('Function complete.', {
+				functionName,
+				functionData,
 			});
 		});
 	}
